@@ -91,6 +91,13 @@ export class ZoomHelper {
         }
     }
 
+    resize() {
+        this.original.x = 0;
+        this.original.y = 0;
+        this.original.width = this.svg.width();
+        this.original.height = this.svg.height();
+    }
+
     keepInBounds() {
         if (this.margins === undefined) return;
         const { top, left, bottom, right } = this.margins;
