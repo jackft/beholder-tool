@@ -3,20 +3,81 @@
 <head>
     <script src="bundles/psych-coder.js"></script>
     <style>
-        .psych-coder-background {
-            fill: #313131;
-        };
-
-        .psych-coder-line {
-            fill: white;
+        .beholder-background {
+            fill: #2c2c32;
         }
+
+        .beholder-cursor {
+            stroke: white;
+            stroke-width: 1px;
+            pointer-events: none;
+        }
+
+        .beholder-cursor-index {
+            stroke: red;
+            stroke-width: 1px;
+            pointer-events: none;
+        }
+
+        .beholder-channel {
+            fill: #2c2c32;
+            stroke: #515151;
+            stroke-width: 1px;
+        }
+
+        .beholder-channel-panel {
+            width: 50px;
+            background-color: aqua;
+        }
+
+        .beholder-channel-panel-child {
+            background-color: #2c2c32;
+            resize: vertical;
+            overflow: hidden;
+        }
+
+        .beholder-channel-panel-child-child {
+            width: 100%;
+            height: 100%;
+        }
+
+        .beholder-channel-tree {
+            fill: none;
+            stroke: #515151;
+            stroke-width: 2px;
+        }
+
+        .beholder-channel-panel-child button {
+            width: 10px;
+            height: 10px;
+            padding: 0;
+            margin: 0;
+            font-family: monospace;
+            font-size: 8px;
+        }
+
+        #hi {
+            display: flex;
+        }
+
     </style>
 </head>
 <body>
 
 <div id="hi"></div>
+<button id="add-channel">+ channel</button>
+<button id="rem-channel">- channel</button>
 <script>
-    psychCoder.Timeline(document.querySelector("#hi"), {});
+    const coder = new psychCoder.Timeline(document.querySelector("#hi"), {});
+    coder.newChannel();
+    coder.newChannel();
+    document.querySelector("#add-channel").addEventListener("click", function() {
+        coder.resize(coder.svg.width(), coder.svg.height() + 50);
+        coder.channels.push(new psychCoder.Channel(coder, 50));
+        coder.draw();
+    });
+    coder.channels[0].newChild();
+    coder.addEventListener("timeline.click", (event) => console.log(event));
 </script>
 
 </body>
