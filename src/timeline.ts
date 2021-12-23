@@ -222,6 +222,7 @@ export class Timeline {
         timelineAnnotation.state = state;
         this.state.timelineAnnotations[timelineAnnotationStateIdx] = state;
         timelineAnnotation.draw();
+        this.drawAnnotations();
     }
 
     deleteTimelineAnnotation(timelineAnnotationId) {
