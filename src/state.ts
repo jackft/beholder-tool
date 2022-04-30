@@ -21,6 +21,8 @@ export interface ChannelState {
 export interface TimelineState {
     channels: Array<ChannelState>
     timelineAnnotations: Array<TimelineAnnotationState>
+    startTime: number
+    endTime: number
 }
 
 /*----------------------------------------------------------------------------*/
@@ -65,11 +67,14 @@ export interface Layout {
     timelineLayout?: [number, number, number, number],
     tableLayout?: [number, number, number, number],
     mediaLayout?: [number, number, number, number],
+    ruler?: boolean,
     channelHeight?: number,
     treeWidth?: number,
 
     maxMediaInitWidth: number,
-    maxTimelineInitWidth: number
+    maxTimelineInitWidth: number,
+
+    table?: boolean
 }
 
 export interface Config {
