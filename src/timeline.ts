@@ -537,7 +537,7 @@ export class Ruler {
             if (j % 40 == 0) {
                 const label = this.timeline.timelineSvg
                                   .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                  .move(i, height/2)
+                                  .move(i, height - height/10)
                                   .addClass("beholder-ruler-label");
                 labels.push(label);
             }
@@ -586,6 +586,7 @@ export class Ruler {
 
         const scale = this.findBestScale();
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
+        const labelHeight = 3*this.height / 7;
         let j=0;
         let k=0;
         for (let i=0; i < this.timeline.width || j < this.ticks.length; i+=tickWidth) {
@@ -594,17 +595,21 @@ export class Ruler {
                 if (k >= this.labels.length) {
                     const label = this.timeline.timelineSvg
                                       .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                      .move(i, height/2)
+                                      .move(i, labelHeight)
                                       .addClass("beholder-ruler-label");
                     this.labels.push(label);
                 } else {
+                    const w = this.labels[k].bbox().width;
                     this.labels[k]
-                        .move(i, height)
-                        .transform({scale: this.timeline.zoomHelper.scale});
+                        .move(i, labelHeight)
+                        .transform({
+                            scale: this.timeline.zoomHelper.scale,
+                            translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
+                        });
                 }
                 ++k
             }
-            if (j % 10 == 0) {
+            if (j % 40 == 0) {
                 height = this.height / 2;
             } else if (j % 5 == 0) {
                 height = this.height / 3;
