@@ -1,4 +1,4 @@
-import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, G, Matrix, on, off } from '@svgdotjs/svg.js';
+import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off } from '@svgdotjs/svg.js';
 
 import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './state';
 import { LinearScale } from './scales';
@@ -109,17 +109,18 @@ export class Timeline {
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
+
+        // drawing options
+        this.channelHeight = layout.channelHeight ?? 800;
+        this.treeWidth = layout.treeWidth ?? 15;
+        this.xscale = new LinearScale([0, this.width], [this.state.startTime, this.state.endTime]);
+
         this.treeSvg = this.initTree();
         this.panel = this.initPanel();
         this.timelineSvg = this.initTimeline();
         this.zoomHelper = this.initZoomHelper();
         this.ruler = this.initRuler();
         this.channels = this.initChannels();
-
-        // drawing options
-        this.channelHeight = layout.channelHeight ?? 800;
-        this.treeWidth = layout.treeWidth ?? 15;
-        this.xscale = new LinearScale([0, this.width], [this.state.startTime, this.state.endTime]);
 
         // stateful things
         this.maxChannelDepth = 0;
@@ -268,6 +269,10 @@ export class Timeline {
         //
         this.cursor.subscribeEvents();
         this.timelineindex.subscribeEvents();
+        this.zoomHelper.addEventListener("zoomHelper.zoom", () => {
+            if (this.ruler !== null)
+                this.ruler.draw()
+        });
     }
 
     //--------------------------------------------------------------------------
@@ -443,6 +448,22 @@ class Cursor {
     }
 }
 
+const timescales = {
+    "milliseconds":     new LinearScale([0, 1000], [0, 1000], false),
+    "halfcentiseconds": new LinearScale([0, 1000], [0, 500], false),
+    "centiseconds":     new LinearScale([0, 1000], [0, 100], false),
+    "halfdeciseconds":  new LinearScale([0, 1000], [0, 50], false),
+    "deciseconds":      new LinearScale([0, 1000], [0, 10], false),
+    "halfseconds":      new LinearScale([0, 1000], [0, 2], false),
+    "seconds":          new LinearScale([0, 1000], [0, 1], false),
+    "5seconds":         new LinearScale([0, 1000], [0, 1/5], false),
+    "decaseconds":      new LinearScale([0, 1000], [0, 1/10], false),
+    "30seconds":        new LinearScale([0, 1000], [0, 1/30], false),
+    "minutes":          new LinearScale([0, 1000], [0, 1/60], false),
+    "5minutes":          new LinearScale([0, 1000], [0, 1/300], false),
+    "10minutes":        new LinearScale([0, 1000], [0, 1/600], false),
+};
+
 export class Ruler {
 
     timeline: Timeline;
@@ -459,6 +480,7 @@ export class Ruler {
     panelBorder: HTMLDivElement = document.createElement("div");
     ruler: Rect = new Rect();
     ticks: Array<Line>;
+    labels: Array<Text>;
 
     constructor(timeline: Timeline, layout: Layout) {
         this.timeline = timeline;
@@ -467,7 +489,7 @@ export class Ruler {
         this.height = 25;
 
         this.ruler = this.initRuler();
-        this.ticks = this.initTicks();
+        [this.ticks, this.labels] = this.initTicksAndLabels();
         this.panel = this.initPanel();
 
         this.draw();
@@ -480,10 +502,30 @@ export class Ruler {
         return ruler;
     }
 
-    initTicks() {
-        const ticks = [];
-        const blockWidth = Math.floor(this.timeline.width / 10);
-        const tickWidth = Math.floor(this.timeline.width / 100)
+    findBestScale() {
+        const milliseconds = this.timeline.state.endTime - this.timeline.state.startTime;
+        const width = this.timeline.width * (this.timeline.width / this.timeline.timelineSvg.viewbox().width);
+        const target = 10 / 1; // 10 pixels per tick
+        let bestMatch = 100000000;
+        let bestScale = timescales["milliseconds"];
+        let scaleName = "milliseconds"
+        Object.entries(timescales).forEach(([name, timescale]) => {
+            const units = width / timescale.call(milliseconds);
+            const match = Math.abs(units - target);
+            if (match < bestMatch) {
+                bestMatch = match;
+                bestScale = timescale;
+                scaleName = name;
+            }
+        });
+        return bestScale;
+    }
+
+    initTicksAndLabels(): [Array<Line>, Array<Text>] {
+        const ticks: Array<Line> = [];
+        const labels: Array<Text> = [];
+        const scale = this.findBestScale();
+        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
         let j=0;
         for (let i=0; i < this.timeline.width; i+=tickWidth) {
             let height = this.height / 6;
@@ -492,12 +534,25 @@ export class Ruler {
             } else if (j % 5 == 0) {
                 height = this.height / 3;
             }
-            this.timeline.timelineSvg
-                         .line(i, 0, i, height)
-                         .addClass("beholder-ruler-ticks");
+            if (j % 40 == 0) {
+                const label = this.timeline.timelineSvg
+                                  .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
+                                  .move(i, height/2)
+                                  .addClass("beholder-ruler-label");
+                labels.push(label);
+            }
+            const tick = this.timeline.timelineSvg
+                             .line(i, 0, i, height)
+                             .addClass("beholder-ruler-ticks");
+            ticks.push(tick);
             ++j;
         }
-        return ticks;
+        return [ticks, labels];
+    }
+
+    initLabels() {
+        const labels = [];
+        return labels;
     }
 
     initPanel() {
@@ -526,8 +581,44 @@ export class Ruler {
 
         if (this.resize)
             this.panel.style.setProperty("height", `${this.height}px`);
-
         this.resize = true;
+
+
+        const scale = this.findBestScale();
+        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
+        let j=0;
+        let k=0;
+        for (let i=0; i < this.timeline.width || j < this.ticks.length; i+=tickWidth) {
+            let height = this.height / 6;
+            if (j % 40 == 0) {
+                if (k >= this.labels.length) {
+                    const label = this.timeline.timelineSvg
+                                      .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
+                                      .move(i, height/2)
+                                      .addClass("beholder-ruler-label");
+                    this.labels.push(label);
+                } else {
+                    this.labels[k]
+                        .move(i, height)
+                        .transform({scale: this.timeline.zoomHelper.scale});
+                }
+                ++k
+            }
+            if (j % 10 == 0) {
+                height = this.height / 2;
+            } else if (j % 5 == 0) {
+                height = this.height / 3;
+            }
+            if (j >= this.ticks.length) {
+                const tick = this.timeline.timelineSvg
+                                 .line(i, 0, i, height)
+                                 .addClass("beholder-ruler-ticks");
+                this.ticks.push(tick);
+            } else {
+                this.ticks[j].plot(i, 0, i, height);
+            }
+            ++j;
+        }
 
 
         let y = this.y + this.height;

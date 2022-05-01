@@ -5,13 +5,15 @@ export interface Scale {
 
 export class LinearScale implements Scale {
 
+    warn: boolean
     domain: [number, number]
     range: [number, number]
     offset: number
     intercept: number
     scale: number
 
-    constructor(domain: [number, number], range: [number, number]) {
+    constructor(domain: [number, number], range: [number, number], warn=true) {
+        this.warn = warn
         this.domain = domain;
         this.range = range;
         this.offset = - domain[0];
@@ -20,14 +22,14 @@ export class LinearScale implements Scale {
     }
 
     call(x: number): number {
-        if (x < this.domain[0] || this.domain[1] < x) {
+        if ((x < this.domain[0] || this.domain[1] < x) && this.warn) {
             console.warn(`${x} outside domain ${this.domain}!`);
         }
         return this.scale*(x + this.offset) + this.intercept;
     }
 
     inv(y: number): number {
-        if (y < this.range[0] || this.range[1] < y) {
+        if ((y < this.range[0] || this.range[1] < y) && this.warn) {
             console.warn(`${y} outside range ${this.range}!`);
         }
         return ((y - this.intercept)/this.scale) - this.offset;
