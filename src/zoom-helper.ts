@@ -40,6 +40,11 @@ function normalizeEvent(event: MouseEvent): [number, number] {
     return [event.clientX, event.clientY];
 }
 
+
+interface ZoomEvents {
+    "zoomHelper.zoom": Array<() => void>,
+}
+
 export class ZoomHelper {
     svg: Svg
 
@@ -59,6 +64,8 @@ export class ZoomHelper {
     zoomCoefficient: [number, number]
     zoomMin: number
     zoomMax: number
+
+    events: ZoomEvents;
 
     constructor(svg: Svg, options: zoomHelperOption) {
         this.svg = svg;
@@ -82,6 +89,10 @@ export class ZoomHelper {
         this.zoomMin = options.zoomMin ?? -10;
         this.zoomMax = options.zoomMax ?? 0;
 
+        this.events = {
+            "zoomHelper.zoom": [],
+        };
+
         if (this.doPanning) {
             this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
         }
@@ -89,6 +100,17 @@ export class ZoomHelper {
         if (this.doWheelZoom) {
             this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
         }
+    }
+
+    addEventListener(name, handler) {
+        this.events[name].push(handler);
+    }
+
+    removeEventListener(name, handler) {
+        if (!this.events.hasOwnProperty(name)) return;
+        const index = this.events[name].indexOf(handler);
+        if (index != -1)
+            this.events[name].splice(index, 1);
     }
 
     resize() {
@@ -192,5 +214,7 @@ export class ZoomHelper {
         this.translate = [xNew, yNew];
 
         this.transform();
+
+        this.events["zoomHelper.zoom"].forEach(f => f());
     }
 }

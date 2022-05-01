@@ -1,16 +1,14 @@
-import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, G, Matrix, on, off } from '@svgdotjs/svg.js';
+import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off } from '@svgdotjs/svg.js';
 
 import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './state';
+import { LinearScale } from './scales';
+import { inJestTest } from './utils';
 import { ZoomHelper } from './zoom-helper';
 
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
-function inJestTest() {
-    return typeof process !== "undefined" && process.env.JEST_WORKER_ID !== undefined;
-}
-
-function overlaps(a: {startFrame: number, endFrame: number}, b: {startFrame: number, endFrame: number}) {
-    return !(a.endFrame < b.startFrame || b.endFrame < a.startFrame);
+function overlaps(a: {startTime: number, endTime: number}, b: {startTime: number, endTime: number}) {
+    return !(a.endTime < b.startTime || b.endTime < a.startTime);
 }
 
 const cumSum = (sum => value => sum += value)(0);
@@ -25,9 +23,9 @@ function overlappingSets(annotations: Array<TimelineAnnotation>) {
     annotations.forEach(annotation => {
         if (currentAnnotation == null || overlaps(currentAnnotation.state, annotation.state)) {
             equivalenceClass.push(annotation);
-            coordinates.push([annotation.state.startFrame, 1]);
-            coordinates.push([annotation.state.endFrame, -1]);
-            if (currentAnnotation == null || currentAnnotation.state.endFrame < annotation.state.endFrame) {
+            coordinates.push([annotation.state.startTime, 1]);
+            coordinates.push([annotation.state.endTime, -1]);
+            if (currentAnnotation == null || currentAnnotation.state.endTime < annotation.state.endTime) {
                 currentAnnotation = annotation;
             }
         } else if (equivalenceClass.length > 0) {
@@ -36,8 +34,8 @@ function overlappingSets(annotations: Array<TimelineAnnotation>) {
             currentAnnotation = annotation;
             equivalenceClass = [annotation];
             coordinates = [];
-            coordinates.push([annotation.state.startFrame, 1]);
-            coordinates.push([annotation.state.endFrame, -1]);
+            coordinates.push([annotation.state.startTime, 1]);
+            coordinates.push([annotation.state.endTime, -1]);
         }
     });
     const maxOverlapSize = Math.max(...coordinates.sort((a, b) => a[0] - b[0]).map(x => x[1]).map(cumSum));
@@ -69,6 +67,7 @@ interface TimelineEvents {
 /** Class representing a multichannel timeline. */
 export class Timeline {
     state: TimelineState
+    ruler: Ruler | null
     channels: Array<Channel>
     timelineAnnotations: Array<TimelineAnnotation> = []
     layout: Layout
@@ -84,6 +83,8 @@ export class Timeline {
     height: number = 100;
     treeWidth: number = 15;
     channelHeight: number = 50;
+
+    xscale: LinearScale;
 
     // drawn things
     rootElem: HTMLElement;
@@ -108,15 +109,18 @@ export class Timeline {
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
-        this.treeSvg = this.initTree();
-        this.panel = this.initPanel();
-        this.timelineSvg = this.initTimeline();
-        this.zoomHelper = this.initZoomHelper();
-        this.channels = this.initChannels();
 
         // drawing options
         this.channelHeight = layout.channelHeight ?? 800;
         this.treeWidth = layout.treeWidth ?? 15;
+        this.xscale = new LinearScale([0, this.width], [this.state.startTime, this.state.endTime]);
+
+        this.treeSvg = this.initTree();
+        this.panel = this.initPanel();
+        this.timelineSvg = this.initTimeline();
+        this.zoomHelper = this.initZoomHelper();
+        this.ruler = this.initRuler();
+        this.channels = this.initChannels();
 
         // stateful things
         this.maxChannelDepth = 0;
@@ -162,6 +166,10 @@ export class Timeline {
         timelineSvg.addTo(this.rootElem).size(this.width, this.height).viewbox(0, 0, this.width, this.height);
         timelineSvg.attr("preserveAspectRatio", "none");
         return timelineSvg;
+    }
+
+    initRuler() {
+        return (this.layout.ruler !== undefined && this.layout.ruler) ? new Ruler(this, this.layout) : null;
     }
 
     initZoomHelper() {return new ZoomHelper(this.timelineSvg, {});}
@@ -222,6 +230,7 @@ export class Timeline {
         timelineAnnotation.state = state;
         this.state.timelineAnnotations[timelineAnnotationStateIdx] = state;
         timelineAnnotation.draw();
+        this.drawAnnotations();
     }
 
     deleteTimelineAnnotation(timelineAnnotationId) {
@@ -260,6 +269,10 @@ export class Timeline {
         //
         this.cursor.subscribeEvents();
         this.timelineindex.subscribeEvents();
+        this.zoomHelper.addEventListener("zoomHelper.zoom", () => {
+            if (this.ruler !== null)
+                this.ruler.draw()
+        });
     }
 
     //--------------------------------------------------------------------------
@@ -278,6 +291,15 @@ export class Timeline {
         this.zoomHelper.resize();
         this.zoomHelper.transform();
         this.treeSvg.size(this.treeSvg.width(), height);
+        this.width = width;
+        this.height = height;
+
+        this.xscale = new LinearScale([0, this.timelineSvg.width()], [this.state.startTime, this.state.endTime]);
+    }
+
+    resizeFullWidth() {
+        const width = this.rootElem.clientWidth - this.treeSvg.width() - this.panel.clientWidth;
+        this.resize(width, this.treeSvg.height());
     }
 
     drawInit() {
@@ -288,12 +310,18 @@ export class Timeline {
     }
 
     draw() {
+        this.drawRuler();
         this.drawChannels();
         this.drawAnnotations();
     }
 
+    drawRuler() {
+        if (this.ruler !== null)
+            this.ruler.draw();
+    }
+
     drawChannels() {
-        let y = 0;
+        let y = this.ruler !== null ? this.ruler.height : 0;
         this.channels.forEach(channel => {channel.y = y; y += channel.height; channel.draw();})
         if (y != this.timelineSvg.height()) {
             this.resize(this.timelineSvg.width(), y);
@@ -305,7 +333,7 @@ export class Timeline {
             let annotations = this.timelineAnnotations.filter(
                 a => a.state.channelId == channel.state.id
             );
-            let sets = overlappingSets(annotations.sort((a, b) => a.state.startFrame - b.state.startFrame));
+            let sets = overlappingSets(annotations.sort((a, b) => a.state.startTime - b.state.startTime));
             sets.forEach(set => {
                 const maxOverlapSize = set.maxOverlapSize;
                 const occupied: Array<null | TimelineAnnotation> = Array(maxOverlapSize).fill(null);
@@ -317,7 +345,7 @@ export class Timeline {
                             index = i;
                             occupied[i] = annotation;
                             break;
-                        } else if (elem.state.endFrame <= annotation.state.startFrame) {
+                        } else if (elem.state.endTime <= annotation.state.startTime) {
                             index = i;
                             occupied[i] = annotation;
                             break;
@@ -376,7 +404,7 @@ class Cursor {
     mousemove(event: MouseEvent) {
         const [xMouse, yMouse] = normalizeEvent(event);
         const {x, y} = this.timeline.point(xMouse, yMouse);
-        this.state.x = x;
+        this.state.x = this.timeline.xscale.call(x);
         //
         this.draw();
     }
@@ -416,7 +444,189 @@ class Cursor {
     }
 
     draw() {
-        this.line.plot(this.state.x, 0, this.state.x, this.state.height).front();
+        this.line.plot(this.timeline.xscale.inv(this.state.x), 0, this.timeline.xscale.inv(this.state.x), this.state.height).front();
+    }
+}
+
+const timescales = {
+    "milliseconds":     new LinearScale([0, 1000], [0, 1000], false),
+    "halfcentiseconds": new LinearScale([0, 1000], [0, 500], false),
+    "centiseconds":     new LinearScale([0, 1000], [0, 100], false),
+    "halfdeciseconds":  new LinearScale([0, 1000], [0, 50], false),
+    "deciseconds":      new LinearScale([0, 1000], [0, 10], false),
+    "halfseconds":      new LinearScale([0, 1000], [0, 2], false),
+    "seconds":          new LinearScale([0, 1000], [0, 1], false),
+    "5seconds":         new LinearScale([0, 1000], [0, 1/5], false),
+    "decaseconds":      new LinearScale([0, 1000], [0, 1/10], false),
+    "30seconds":        new LinearScale([0, 1000], [0, 1/30], false),
+    "minutes":          new LinearScale([0, 1000], [0, 1/60], false),
+    "5minutes":          new LinearScale([0, 1000], [0, 1/300], false),
+    "10minutes":        new LinearScale([0, 1000], [0, 1/600], false),
+};
+
+export class Ruler {
+
+    timeline: Timeline;
+    layout: Layout;
+
+    height: number;
+    y: number;
+
+    // resize observer things
+    resizeObserver?: ResizeObserver;
+    resize: boolean = true;
+
+    panel: HTMLDivElement = document.createElement("div");
+    panelBorder: HTMLDivElement = document.createElement("div");
+    ruler: Rect = new Rect();
+    ticks: Array<Line>;
+    labels: Array<Text>;
+
+    constructor(timeline: Timeline, layout: Layout) {
+        this.timeline = timeline;
+        this.layout = layout;
+        this.y = 0;
+        this.height = 25;
+
+        this.ruler = this.initRuler();
+        [this.ticks, this.labels] = this.initTicksAndLabels();
+        this.panel = this.initPanel();
+
+        this.draw();
+    }
+
+    initRuler() {
+        const ruler = this.timeline.timelineSvg
+                          .rect(this.timeline.timelineSvg.width(), this.height)
+                          .addClass("beholder-ruler");
+        return ruler;
+    }
+
+    findBestScale() {
+        const milliseconds = this.timeline.state.endTime - this.timeline.state.startTime;
+        const width = this.timeline.width * (this.timeline.width / this.timeline.timelineSvg.viewbox().width);
+        const target = 10 / 1; // 10 pixels per tick
+        let bestMatch = 100000000;
+        let bestScale = timescales["milliseconds"];
+        let scaleName = "milliseconds"
+        Object.entries(timescales).forEach(([name, timescale]) => {
+            const units = width / timescale.call(milliseconds);
+            const match = Math.abs(units - target);
+            if (match < bestMatch) {
+                bestMatch = match;
+                bestScale = timescale;
+                scaleName = name;
+            }
+        });
+        return bestScale;
+    }
+
+    initTicksAndLabels(): [Array<Line>, Array<Text>] {
+        const ticks: Array<Line> = [];
+        const labels: Array<Text> = [];
+        const scale = this.findBestScale();
+        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
+        let j=0;
+        for (let i=0; i < this.timeline.width; i+=tickWidth) {
+            let height = this.height / 6;
+            if (j % 10 == 0) {
+                height = this.height / 2;
+            } else if (j % 5 == 0) {
+                height = this.height / 3;
+            }
+            if (j % 40 == 0) {
+                const label = this.timeline.timelineSvg
+                                  .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
+                                  .move(i, height - height/10)
+                                  .addClass("beholder-ruler-label");
+                labels.push(label);
+            }
+            const tick = this.timeline.timelineSvg
+                             .line(i, 0, i, height)
+                             .addClass("beholder-ruler-ticks");
+            ticks.push(tick);
+            ++j;
+        }
+        return [ticks, labels];
+    }
+
+    initLabels() {
+        const labels = [];
+        return labels;
+    }
+
+    initPanel() {
+        this.panel.setAttribute("class", "beholder-ruler-panel-child");
+        this.panelBorder.setAttribute("class", "beholder-ruler-panel-child-child");
+
+        this.timeline.panel.append(this.panel);
+        this.panel.appendChild(this.panelBorder);
+
+        if (inJestTest()) return this.panel;
+        this.resizeObserver = new ResizeObserver(entries => {
+            entries.forEach(entry => {
+                this.height = entry.contentRect.height;
+                this.resize = false;
+                this.timeline.draw();
+            });
+        });
+        this.resizeObserver.observe(this.panel);
+        return this.panel;
+    }
+
+    draw() {
+        this.ruler.attr("y", this.y);
+        this.ruler.attr("width", this.timeline.timelineSvg.width());
+        this.ruler.attr("height", this.height);
+
+        if (this.resize)
+            this.panel.style.setProperty("height", `${this.height}px`);
+        this.resize = true;
+
+
+        const scale = this.findBestScale();
+        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
+        const labelHeight = 3*this.height / 7;
+        let j=0;
+        let k=0;
+        for (let i=0; i < this.timeline.width || j < this.ticks.length; i+=tickWidth) {
+            let height = this.height / 6;
+            if (j % 40 == 0) {
+                if (k >= this.labels.length) {
+                    const label = this.timeline.timelineSvg
+                                      .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
+                                      .move(i, labelHeight)
+                                      .addClass("beholder-ruler-label");
+                    this.labels.push(label);
+                } else {
+                    const w = this.labels[k].bbox().width;
+                    this.labels[k]
+                        .move(i, labelHeight)
+                        .transform({
+                            scale: this.timeline.zoomHelper.scale,
+                            translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
+                        });
+                }
+                ++k
+            }
+            if (j % 40 == 0) {
+                height = this.height / 2;
+            } else if (j % 5 == 0) {
+                height = this.height / 3;
+            }
+            if (j >= this.ticks.length) {
+                const tick = this.timeline.timelineSvg
+                                 .line(i, 0, i, height)
+                                 .addClass("beholder-ruler-ticks");
+                this.ticks.push(tick);
+            } else {
+                this.ticks[j].plot(i, 0, i, height);
+            }
+            ++j;
+        }
+
+
+        let y = this.y + this.height;
     }
 }
 
@@ -520,16 +730,15 @@ export class Channel {
         Object.values(this.channelButtons)
               .forEach(v => this.channelButtonsDiv.append(v));
 
-        if (!inJestTest()) {
-            this.resizeObserver = new ResizeObserver(entries => {
-                entries.forEach(entry => {
-                    this.height = entry.contentRect.height;
-                    this.resize = false;
-                    this.timeline.draw();
-                });
+        if (inJestTest()) return this.panel;
+        this.resizeObserver = new ResizeObserver(entries => {
+            entries.forEach(entry => {
+                this.height = entry.contentRect.height;
+                this.resize = false;
+                this.timeline.draw();
             });
-            this.resizeObserver.observe(this.panel);
-        }
+        });
+        this.resizeObserver.observe(this.panel);
         return this.panel;
     }
 
@@ -542,6 +751,7 @@ export class Channel {
 
     draw() {
         this.channel.attr("y", this.y);
+        this.channel.attr("width", this.timeline.timelineSvg.width());
         this.channel.attr("height", this.height);
         if (this.resize)
             this.panel.style.setProperty("height", `${this.height}px`);
@@ -645,7 +855,7 @@ class TimelineAnnotation {
     }
 
     drawInterval() {
-        if (this.state.startFrame > this.state.endFrame) {
+        if (this.state.startTime > this.state.endTime) {
             if (this.draggedShape == "l") {
                 this.draggedShape = "r";
                 let tmp = this.l;
@@ -673,18 +883,18 @@ class TimelineAnnotation {
                 this.draggedShape = "rect";
                 this.dragstart(event)
             });
-            const tmp = this.state.startFrame;
-            this.state.startFrame = this.state.endFrame;
-            this.state.endFrame = tmp;
+            const tmp = this.state.startTime;
+            this.state.startTime = this.state.endTime;
+            this.state.endTime = tmp;
         }
         const channel = this.timeline.getChannel(this.state.channelId);
         if (channel == null) return;
-        const width = this.state.endFrame - this.state.startFrame;
+        const width = this.timeline.xscale.inv(this.state.endTime - this.state.startTime);
         this.rect.attr("width", width);
         this.rect.attr("height", this.height);
         this.l.plot([[0, 0], [0, this.height]])
         this.r.plot([[width, 0], [width, this.height]])
-        this.g.transform({translateX: this.state.startFrame, translateY: this.y});
+        this.g.transform({translateX: this.timeline.xscale.inv(this.state.startTime), translateY: this.y});
     }
 
     addEventListener(name, handler) {
@@ -730,13 +940,13 @@ class TimelineAnnotation {
         const {x, y} = this.timeline.point(xMouse, yMouse);
         if (this.state.type == "interval") {
             if (this.draggedShape == "l")
-                this.state.startFrame = x;
+                this.state.startTime = this.timeline.xscale.call(x);
             else if (this.draggedShape == "r")
-                this.state.endFrame = x;
+                this.state.endTime = this.timeline.xscale.call(x);
             else if (this.draggedShape == "rect" && this.dragStartState != null) {
-                const delta = x - this.dragStartX;
-                this.state.endFrame = this.dragStartState.endFrame + delta;
-                this.state.startFrame = this.dragStartState.startFrame + delta;
+                const delta = this.timeline.xscale.call(x - this.dragStartX);
+                this.state.endTime = this.dragStartState.endTime + delta;
+                this.state.startTime = this.dragStartState.startTime + delta;
             }
             this._keepIntervalInBounds();
         }
@@ -765,18 +975,18 @@ class TimelineAnnotation {
 
     _keepIntervalInBounds() {
         if (this.draggedShape == "l") {
-            this.state.startFrame = Math.min(Math.max(0, this.state.startFrame), this.timeline.width);
+            this.state.startTime = Math.min(Math.max(this.timeline.xscale.call(0), this.state.startTime), this.timeline.xscale.call(this.timeline.width));
         } else if (this.draggedShape == "r") {
-            this.state.startFrame = Math.min(Math.max(0, this.state.startFrame), this.timeline.width);
+            this.state.endTime = Math.min(Math.max(this.timeline.xscale.call(0), this.state.endTime), this.timeline.xscale.call(this.timeline.width));
         } else if (this.draggedShape == "rect") {
-            if (this.state.startFrame < 0) {
-                const width = this.state.endFrame - this.state.startFrame;
-                this.state.startFrame = 0;
-                this.state.endFrame = width;
-            } else if (this.state.endFrame > this.timeline.width) {
-                const width = this.state.endFrame - this.state.startFrame;
-                this.state.startFrame = this.timeline.width - width;
-                this.state.endFrame = this.timeline.width;
+            if (this.state.startTime < this.timeline.xscale.call(0)) {
+                const width = this.state.endTime - this.state.startTime;
+                this.state.startTime = 0;
+                this.state.endTime = width;
+            } else if (this.state.endTime > this.timeline.xscale.call(this.timeline.width)) {
+                const width = this.state.endTime - this.state.startTime;
+                this.state.startTime = this.timeline.xscale.call(this.timeline.width) - width;
+                this.state.endTime = this.timeline.xscale.call(this.timeline.width);
             }
         }
     }

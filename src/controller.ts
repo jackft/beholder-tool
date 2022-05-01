@@ -126,14 +126,16 @@ export class Controller {
         this.rootElem = rootElem;
         this.state = config.state;
         this.layout = config.layout;
-        this.table.setAttribute("class", "beholder-annotation-table");
-        this.table.innerHTML = `
-        <div class="btn-group" role="group" aria-label="Basic example">
-          <button type="button" class="btn btn-secondary">Left</button>
-          <button type="button" class="btn btn-secondary">Middle</button>
-          <button type="button" class="btn btn-secondary">Right</button>
-        </div>`;
-        this.rootElem.appendChild(this.table);
+        if (config.layout.table) {
+            this.table.setAttribute("class", "beholder-annotation-table");
+            this.table.innerHTML = `
+            <div class="btn-group" role="group" aria-label="Basic example">
+              <button type="button" class="btn btn-secondary">Left</button>
+              <button type="button" class="btn btn-secondary">Middle</button>
+              <button type="button" class="btn btn-secondary">Right</button>
+            </div>`;
+            this.rootElem.appendChild(this.table);
+        }
         this.media = this.initMedia(this.state.media);
         this.mediaContainer = this.media.element.parentElement;
         if (this.state.timeline != null) {
@@ -172,6 +174,7 @@ export class Controller {
                 "grid-column",
                 `${this.layout.timelineLayout[1]} / ${this.layout.timelineLayout[3]}`
             );
+            this.timeline.rootElem.style.setProperty("width", `${this.layout.maxTimelineInitWidth}px`);
         }
 
         if (this.layout.mediaLayout !== undefined) {
@@ -195,9 +198,22 @@ export class Controller {
                 `${this.layout.tableLayout[1]} / ${this.layout.tableLayout[3]}`
             );
         }
+
         if (this.mediaContainer != null) {
-            console.log("HI");
             this.mediaContainer.style.setProperty("width", `${this.layout.maxMediaInitWidth}px`);
+        }
+
+        if (this.mediaContainer != null && this.timeline != null) {
+            this.media.addEventListener(
+                "media.resize",
+                (entry) => {
+                    if (this.timeline !== undefined) {
+                        this.timeline.rootElem.style.setProperty("width", `${entry.contentRect.width}px`)
+                        this.timeline.resizeFullWidth();
+                        this.timeline.draw();
+                    }
+                }
+            );
         }
 
         console.log(this.layout);
