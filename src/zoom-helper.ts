@@ -48,7 +48,7 @@ interface ZoomEvents {
 export class ZoomHelper {
     svg: Svg
 
-    zoomInProgress: boolean;
+    zoomInProgress: boolean
     zoomFactor: number
     mouseDownP: [number, number]
     lastP: [number, number]
@@ -56,6 +56,7 @@ export class ZoomHelper {
     translate: [number, number]
     original: Box
 
+    disabled: boolean = false
     doPanning: boolean
     doWheelZoom: boolean
     panButton: MouseButton
@@ -93,13 +94,7 @@ export class ZoomHelper {
             "zoomHelper.zoom": [],
         };
 
-        if (this.doPanning) {
-            this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
-        }
-        const _this = this;
-        if (this.doWheelZoom) {
-            this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
-        }
+        this.enable();
     }
 
     addEventListener(name, handler) {
@@ -111,6 +106,24 @@ export class ZoomHelper {
         const index = this.events[name].indexOf(handler);
         if (index != -1)
             this.events[name].splice(index, 1);
+    }
+
+    disable() {
+        this.disabled = true;
+        console.log("harlo");
+        this.svg.off("mousedown.panZoom");
+        this.svg.off("wheel.panZoom");
+    }
+
+    enable() {
+        this.disabled = false;
+        if (this.doPanning) {
+            this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
+        }
+        const _this = this;
+        if (this.doWheelZoom) {
+            this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
+        }
     }
 
     resize() {
@@ -151,6 +164,7 @@ export class ZoomHelper {
 
     panStart(event: MouseEvent) {
         event.preventDefault();
+        console.log("HI");
         this.mouseDownP = normalizeEvent(event);
         this.lastP = [...this.translate];
         on(document, "mousemove.panZoom", ((event: MouseEvent) => this.panning(event)) as any);

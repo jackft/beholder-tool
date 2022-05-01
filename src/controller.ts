@@ -16,9 +16,10 @@
 
 
 
-import { Channel, Timeline } from './timeline';
-import { Config, Layout, State, ChannelState, TimelineState, MediaState, TimelineAnnotationState } from './state';
 import { Media, Video } from './media';
+import { Timeline } from './timeline';
+import { Table } from './table';
+import { Config, Layout, State, ChannelState, TimelineState, MediaState, TimelineAnnotationState } from './state';
 
 function undoCreateChannel(timeline: Timeline, channelId: number) {
     const c = timeline.getChannel(channelId);
@@ -121,28 +122,28 @@ export class Controller {
     mediaContainer: HTMLElement | null
     media: Media
     timeline?: Timeline;
-    table: HTMLElement = document.createElement("div");
+    table?: Table;
     constructor(rootElem: HTMLElement, config: Config) {
         this.rootElem = rootElem;
         this.state = config.state;
         this.layout = config.layout;
-        if (config.layout.table) {
-            this.table.setAttribute("class", "beholder-annotation-table");
-            this.table.innerHTML = `
-            <div class="btn-group" role="group" aria-label="Basic example">
-              <button type="button" class="btn btn-secondary">Left</button>
-              <button type="button" class="btn btn-secondary">Middle</button>
-              <button type="button" class="btn btn-secondary">Right</button>
-            </div>`;
-            this.rootElem.appendChild(this.table);
-        }
         this.media = this.initMedia(this.state.media);
         this.mediaContainer = this.media.element.parentElement;
         if (this.state.timeline != null) {
             this.timeline = this.initTimeline(this.state.timeline);
         }
+        if (this.layout.table !== null) {
+            this.table = this.initTable(this.state);
+        }
         this.setGridLayout();
         this.listeners();
+    }
+
+    initTable(state: State) {
+        const element = document.createElement("div");
+        const table = new Table(element, state, this.layout);
+        this.rootElem.append(element);
+        return table;
     }
 
     initMedia(mediaState: MediaState) {
@@ -188,12 +189,12 @@ export class Controller {
             );
         }
 
-        if (this.layout.tableLayout !== undefined) {
-            this.table.style.setProperty(
+        if (this.table !== undefined && this.layout.tableLayout !== undefined) {
+            this.table.rootElem.style.setProperty(
                 "grid-row",
                 `${this.layout.tableLayout[0]} / ${this.layout.tableLayout[2]}`
             );
-            this.table.style.setProperty(
+            this.table.rootElem.style.setProperty(
                 "grid-column",
                 `${this.layout.tableLayout[1]} / ${this.layout.tableLayout[3]}`
             );
@@ -296,6 +297,7 @@ export class Controller {
         const redo = () => {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(newState);
+            console.log(this.table?.update());
         };
         this.historyHandler.do(new StateTransition(redo, undo));
     }

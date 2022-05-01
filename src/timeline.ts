@@ -527,7 +527,8 @@ export class Ruler {
         const scale = this.findBestScale();
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
         let j=0;
-        for (let i=0; i < this.timeline.width; i+=tickWidth) {
+        const labelHeight = 3*this.height / 7;
+        for (let i=0; i < this.timeline.width*2; i+=tickWidth) {
             let height = this.height / 6;
             if (j % 10 == 0) {
                 height = this.height / 2;
@@ -537,7 +538,7 @@ export class Ruler {
             if (j % 40 == 0) {
                 const label = this.timeline.timelineSvg
                                   .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                  .move(i, height - height/10)
+                                  .move(i, labelHeight)
                                   .addClass("beholder-ruler-label");
                 labels.push(label);
             }
@@ -593,9 +594,14 @@ export class Ruler {
             let height = this.height / 6;
             if (j % 40 == 0) {
                 if (k >= this.labels.length) {
+                    const w = this.labels[0].bbox().width;
                     const label = this.timeline.timelineSvg
                                       .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
                                       .move(i, labelHeight)
+                                      .transform({
+                                          scale: this.timeline.zoomHelper.scale,
+                                          translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
+                                      })
                                       .addClass("beholder-ruler-label");
                     this.labels.push(label);
                 } else {
@@ -924,6 +930,7 @@ class TimelineAnnotation {
     }
 
     dragstart(event: MouseEvent) {
+        this.timeline.zoomHelper.disable();
         this.timeline.timelineSvg.addClass("beholder-interval-resize");
         this.g.addClass("beholder-dragging");
         this.dragStartState = deepCopy(this.state);
@@ -954,6 +961,7 @@ class TimelineAnnotation {
     }
 
     dragend(event: MouseEvent) {
+        this.timeline.zoomHelper.enable();
         this.timeline.timelineSvg.removeClass("beholder-interval-resize");
         this.g.removeClass("beholder-dragging");
         const [xMouse, yMouse] = normalizeEvent(event);
