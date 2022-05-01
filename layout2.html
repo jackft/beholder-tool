@@ -66,6 +66,13 @@
         .beholder-ruler-ticks {
             stroke: #515151;
             stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .beholder-ruler-label {
+            fill: #515151;
+            font-family: "Inconsolata; mono";
+            font-size: 10px;
         }
 
         .beholder-ruler-panel-child {
@@ -160,7 +167,7 @@
             ],
             timelineAnnotations: [],
             startTime: 0,
-            endTime: 500,
+            endTime: 1000*60,
         },
     };
     const layout = {
