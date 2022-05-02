@@ -50,11 +50,29 @@ export class Table {
         if (this.layout.table) {
             this.rootElem.setAttribute("class", "beholder-annotation-table");
             this.rootElem.innerHTML = `
-            <div class="btn-group" role="group" aria-label="Basic example">
-              <button type="button" class="btn btn-secondary">Timeline</button>
-              <button type="button" class="btn btn-secondary">Video</button>
-              <button type="button" class="btn btn-secondary">Entities</button>
+            <div>
+                <div class="btn-group" role="group" aria-label="Basic example">
+                  <button type="button" class="btn btn-secondary">Timeline</button>
+                  <button type="button" class="btn btn-secondary">Video</button>
+                  <button type="button" class="btn btn-secondary">Entities</button>
+                </div>
+                <div id="formio"></div>
             </div>`;
+            //Formio.createForm(document.getElementById("formio"),
+            //    {
+            //        components: [
+            //            {
+            //              type: 'textfield',
+            //              key: 'firstName',
+            //              label: 'First Name',
+            //              placeholder: 'Enter your first name.',
+            //              input: true,
+            //              tooltip: 'Enter your <strong>First Name</strong>',
+            //              description: 'Enter your <strong>First Name</strong>'
+            //            }
+            //        ]
+            //    }
+            //)
         }
     }
 

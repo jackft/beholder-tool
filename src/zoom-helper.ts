@@ -119,10 +119,12 @@ export class ZoomHelper {
     enable() {
         this.disabled = false;
         if (this.doPanning) {
+            // @ts-ignore
             this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
         }
         const _this = this;
         if (this.doWheelZoom) {
+            // @ts-ignore
             this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
         }
     }
@@ -130,7 +132,9 @@ export class ZoomHelper {
     resize() {
         this.original.x = 0;
         this.original.y = 0;
+        // @ts-ignore
         this.original.width = this.svg.width();
+        // @ts-ignore
         this.original.height = this.svg.height();
     }
 

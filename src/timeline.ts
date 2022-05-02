@@ -194,9 +194,33 @@ export class Timeline {
 
     //--------------------------------------------------------------------------
 
+    sortChannels() {
+        this.channels.sort((lhs, rhs) => {
+            if (lhs.state.parentId == rhs.state.parentId) {
+                return lhs.state.id - rhs.state.id;
+            } else if (lhs.state.parentId == rhs.state.id) {
+                return lhs.state.id - rhs.state.id;
+            } else if (lhs.state.id == rhs.state.parentId) {
+                return lhs.state.id - rhs.state.id;
+            } else {
+                if (lhs.state.parentId != null && rhs.state.parentId != null) {
+                    return lhs.state.parentId - rhs.state.parentId;
+                } else if (lhs.state.parentId == null && rhs.state.parentId != null) {
+                    return lhs.state.id - rhs.state.parentId;
+                } else if (lhs.state.parentId != null && rhs.state.parentId == null) {
+                    return lhs.state.parentId - rhs.state.id;
+                }
+                return lhs.state.id - rhs.state.id;
+            }
+            return 0;
+        });
+        console.log(this.channels.map(c => c.state));
+    }
+
     createChannel(state: ChannelState) {
         this.channels.push(new Channel(this, state, this.layout));
         this.state.channels.push(state);
+        this.sortChannels();
     }
 
     updateChannel(state: ChannelState) {
@@ -205,6 +229,7 @@ export class Timeline {
         if (channel === null || channelStateIdx == -1) return null;
         channel.state = state;
         this.state.channels[channelStateIdx] = state;
+        this.sortChannels();
     }
 
     deleteChannel(channelId) {
@@ -214,6 +239,7 @@ export class Timeline {
         this.channels[channelIdx].delete();
         this.channels.splice(channelIdx, 1);
         this.state.channels.splice(channelStateIdx, 1);
+        this.sortChannels();
     }
 
     createTimelineAnnotation(state: TimelineAnnotationState) {
@@ -263,6 +289,7 @@ export class Timeline {
             });
         });
         timelineResizeObserver.observe(this.timelineSvg.node);
+        // @ts-ignore
         this.timelineSvg.on("click", (event, cb, context) => {
                 this.events["timeline.click"].forEach(f => f(event));
         });
@@ -298,11 +325,14 @@ export class Timeline {
         this.width = width;
         this.height = height;
 
+        // @ts-ignore
         this.xscale = new LinearScale([0, this.timelineSvg.width()], [this.state.startTime, this.state.endTime]);
     }
 
     resizeFullWidth() {
+        // @ts-ignore
         const width = this.rootElem.clientWidth - this.treeSvg.width() - this.panel.clientWidth;
+        // @ts-ignore
         this.resize(width, this.treeSvg.height());
     }
 
@@ -328,6 +358,7 @@ export class Timeline {
         let y = this.ruler !== null ? this.ruler.height : 0;
         this.channels.forEach(channel => {channel.y = y; y += channel.height; channel.draw();})
         if (y != this.timelineSvg.height()) {
+            // @ts-ignore
             this.resize(this.timelineSvg.width(), y);
         }
     }
@@ -429,6 +460,7 @@ class Cursor {
     subscribeEvents() {
         if (inJestTest()) return;
         if (this.state.type === "cursor") {
+            // @ts-ignore
             this.timeline.timelineSvg.on("mousemove", (event) => this.mousemove(event));
         }
         if (this.state.type === "index") {
@@ -507,6 +539,7 @@ export class Ruler {
 
     initRuler() {
         const ruler = this.g
+                          // @ts-ignore
                           .rect(this.timeline.timelineSvg.width(), this.height)
                           .addClass("beholder-ruler");
         return ruler;
@@ -583,6 +616,10 @@ export class Ruler {
         });
         this.resizeObserver.observe(this.panel);
         return this.panel;
+    }
+
+    displayTime() {
+
     }
 
     draw() {
@@ -662,9 +699,6 @@ export class Ruler {
             }
             ++j;
         }
-
-        console.log(this.ticks.length, this.start, end, (end-this.start) / tickWidth);
-        let y = this.y + this.height;
     }
 }
 
@@ -716,18 +750,20 @@ export class Channel {
 
     _treePathPoints(): PointArray {
         const depthFrac = this.depth()/(this.timeline.maxChannelDepth + 1);
+        // @ts-ignore
         const width = this.timeline.treeSvg.width()-2*this.timeline.treeMargin;
         let rx, ry, ny, lx: number;
 
         if (this.parent === null) {
             ry = this.y + this.height/2;
-            rx = 0;
+            rx = this.timeline.treeMargin;
         }
         else {
             ry = this.parent.y + this.parent.height/2;
             rx = this.timeline.treeMargin + (depthFrac*width);
         }
         ny = this.y + this.height/2;
+        // @ts-ignore
         lx = this.timeline.treeSvg.width();
         return new PointArray([
             [rx, ry],
@@ -782,6 +818,7 @@ export class Channel {
 
     initChannel() {
         const channel = this.timeline.timelineSvg
+                            // @ts-ignore
                             .rect(this.timeline.timelineSvg.width(), this.height)
                             .addClass("beholder-channel");
         return channel;
@@ -911,14 +948,17 @@ class TimelineAnnotation {
             this.rect.off("mousedown");
             this.r.on("mousedown", (event) => {
                 this.draggedShape = "r";
+                // @ts-ignore
                 this.dragstart(event)
             });
             this.l.on("mousedown", (event) => {
                 this.draggedShape = "l";
+                // @ts-ignore
                 this.dragstart(event)
             });
             this.rect.on("mousedown", (event) => {
                 this.draggedShape = "rect";
+                // @ts-ignore
                 this.dragstart(event)
             });
             const tmp = this.state.startTime;
@@ -949,14 +989,17 @@ class TimelineAnnotation {
     subscribeEvents() {
         this.r.on("mousedown", (event) => {
             this.draggedShape = "r";
+            // @ts-ignore
             this.dragstart(event)
         });
         this.l.on("mousedown", (event) => {
             this.draggedShape = "l";
+            // @ts-ignore
             this.dragstart(event)
         });
         this.rect.on("mousedown", (event) => {
             this.draggedShape = "rect";
+            // @ts-ignore
             this.dragstart(event)
         });
     }
