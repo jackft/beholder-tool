@@ -273,6 +273,10 @@ export class Timeline {
             if (this.ruler !== null)
                 this.ruler.draw()
         });
+        this.zoomHelper.addEventListener("zoomHelper.pan", () => {
+            if (this.ruler !== null)
+                this.ruler.draw()
+        });
     }
 
     //--------------------------------------------------------------------------
@@ -473,14 +477,18 @@ export class Ruler {
     y: number;
 
     // resize observer things
-    resizeObserver?: ResizeObserver;
-    resize: boolean = true;
+    resizeObserver?: ResizeObserver
+    resize: boolean = true
 
-    panel: HTMLDivElement = document.createElement("div");
-    panelBorder: HTMLDivElement = document.createElement("div");
-    ruler: Rect = new Rect();
-    ticks: Array<Line>;
-    labels: Array<Text>;
+    scaleName: String
+    start: number = 0
+
+    panel: HTMLDivElement = document.createElement("div")
+    panelBorder: HTMLDivElement = document.createElement("div")
+    ruler: Rect = new Rect()
+    g: G
+    ticks: Array<Line>
+    labels: Array<Text>
 
     constructor(timeline: Timeline, layout: Layout) {
         this.timeline = timeline;
@@ -488,7 +496,9 @@ export class Ruler {
         this.y = 0;
         this.height = 25;
 
+        this.g = this.timeline.timelineSvg.group().attr("class", "beholder-ruler");
         this.ruler = this.initRuler();
+        this.scaleName = this.findBestScale()[1];
         [this.ticks, this.labels] = this.initTicksAndLabels();
         this.panel = this.initPanel();
 
@@ -496,13 +506,13 @@ export class Ruler {
     }
 
     initRuler() {
-        const ruler = this.timeline.timelineSvg
+        const ruler = this.g
                           .rect(this.timeline.timelineSvg.width(), this.height)
                           .addClass("beholder-ruler");
         return ruler;
     }
 
-    findBestScale() {
+    findBestScale(): [LinearScale, String] {
         const milliseconds = this.timeline.state.endTime - this.timeline.state.startTime;
         const width = this.timeline.width * (this.timeline.width / this.timeline.timelineSvg.viewbox().width);
         const target = 10 / 1; // 10 pixels per tick
@@ -518,13 +528,13 @@ export class Ruler {
                 scaleName = name;
             }
         });
-        return bestScale;
+        return [bestScale, scaleName];
     }
 
     initTicksAndLabels(): [Array<Line>, Array<Text>] {
         const ticks: Array<Line> = [];
         const labels: Array<Text> = [];
-        const scale = this.findBestScale();
+        const [scale, name] = this.findBestScale();
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
         let j=0;
         const labelHeight = 3*this.height / 7;
@@ -536,13 +546,13 @@ export class Ruler {
                 height = this.height / 3;
             }
             if (j % 40 == 0) {
-                const label = this.timeline.timelineSvg
+                const label = this.g
                                   .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
                                   .move(i, labelHeight)
                                   .addClass("beholder-ruler-label");
                 labels.push(label);
             }
-            const tick = this.timeline.timelineSvg
+            const tick = this.g
                              .line(i, 0, i, height)
                              .addClass("beholder-ruler-ticks");
             ticks.push(tick);
@@ -585,17 +595,36 @@ export class Ruler {
         this.resize = true;
 
 
-        const scale = this.findBestScale();
+        const [scale, scaleName] = this.findBestScale();
+        let scaleChange = false
+        if (this.scaleName != scaleName) {
+            scaleChange = true;
+            this.scaleName = scaleName;
+        }
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
         const labelHeight = 3*this.height / 7;
+        let viewStart = this.timeline.zoomHelper.translate[0];
+        let viewEnd = viewStart + this.timeline.width * this.timeline.zoomHelper.scale[0];
+        if (scaleChange || viewStart < this.start) {
+            this.start = Math.max(
+                viewStart - (viewEnd - viewStart),
+                this.timeline.xscale.inv(this.timeline.state.startTime)
+            );
+            this.start += this.start % tickWidth;
+        }
+        let end = Math.min(
+            viewEnd + (viewEnd - viewStart),
+            this.timeline.xscale.inv(this.timeline.state.endTime)
+        );
         let j=0;
+        let jrem = Math.floor(this.start / tickWidth);
         let k=0;
-        for (let i=0; i < this.timeline.width || j < this.ticks.length; i+=tickWidth) {
+        for (let i=this.start; i < end || j < this.ticks.length; i+=tickWidth) {
             let height = this.height / 6;
-            if (j % 40 == 0) {
+            if ((j + jrem) % 40 == 0) {
                 if (k >= this.labels.length) {
                     const w = this.labels[0].bbox().width;
-                    const label = this.timeline.timelineSvg
+                    const label = this.g
                                       .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
                                       .move(i, labelHeight)
                                       .transform({
@@ -612,6 +641,9 @@ export class Ruler {
                             scale: this.timeline.zoomHelper.scale,
                             translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
                         });
+                    if (scaleChange) {
+                        this.labels[k].text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
+                    }
                 }
                 ++k
             }
@@ -621,7 +653,7 @@ export class Ruler {
                 height = this.height / 3;
             }
             if (j >= this.ticks.length) {
-                const tick = this.timeline.timelineSvg
+                const tick = this.g
                                  .line(i, 0, i, height)
                                  .addClass("beholder-ruler-ticks");
                 this.ticks.push(tick);
@@ -631,7 +663,7 @@ export class Ruler {
             ++j;
         }
 
-
+        console.log(this.ticks.length, this.start, end, (end-this.start) / tickWidth);
         let y = this.y + this.height;
     }
 }

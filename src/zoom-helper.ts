@@ -43,6 +43,7 @@ function normalizeEvent(event: MouseEvent): [number, number] {
 
 interface ZoomEvents {
     "zoomHelper.zoom": Array<() => void>,
+    "zoomHelper.pan": Array<() => void>,
 }
 
 export class ZoomHelper {
@@ -92,6 +93,7 @@ export class ZoomHelper {
 
         this.events = {
             "zoomHelper.zoom": [],
+            "zoomHelper.pan": [],
         };
 
         this.enable();
@@ -110,7 +112,6 @@ export class ZoomHelper {
 
     disable() {
         this.disabled = true;
-        console.log("harlo");
         this.svg.off("mousedown.panZoom");
         this.svg.off("wheel.panZoom");
     }
@@ -164,7 +165,6 @@ export class ZoomHelper {
 
     panStart(event: MouseEvent) {
         event.preventDefault();
-        console.log("HI");
         this.mouseDownP = normalizeEvent(event);
         this.lastP = [...this.translate];
         on(document, "mousemove.panZoom", ((event: MouseEvent) => this.panning(event)) as any);
@@ -182,6 +182,7 @@ export class ZoomHelper {
         let yNew = this.lastP[1] + yDelta * this.scale[1];
         this.translate = [xNew, yNew]
         this.transform();
+        this.events["zoomHelper.pan"].forEach(f => f());
     }
 
     panStop(event: MouseEvent) {

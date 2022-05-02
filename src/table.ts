@@ -51,9 +51,9 @@ export class Table {
             this.rootElem.setAttribute("class", "beholder-annotation-table");
             this.rootElem.innerHTML = `
             <div class="btn-group" role="group" aria-label="Basic example">
-              <button type="button" class="btn btn-secondary">Left</button>
-              <button type="button" class="btn btn-secondary">Middle</button>
-              <button type="button" class="btn btn-secondary">Right</button>
+              <button type="button" class="btn btn-secondary">Timeline</button>
+              <button type="button" class="btn btn-secondary">Video</button>
+              <button type="button" class="btn btn-secondary">Entities</button>
             </div>`;
         }
     }
