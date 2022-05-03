@@ -21,3 +21,4 @@ jobs:
           node-version: 16.x
           cache: npm
       - run: make build
+      - run: make test
