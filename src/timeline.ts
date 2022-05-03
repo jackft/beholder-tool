@@ -298,11 +298,11 @@ export class Timeline {
         this.timelineindex.subscribeEvents();
         this.zoomHelper.addEventListener("zoomHelper.zoom", () => {
             if (this.ruler !== null)
-                this.ruler.draw()
+                this.ruler.draw(true);
         });
         this.zoomHelper.addEventListener("zoomHelper.pan", () => {
             if (this.ruler !== null)
-                this.ruler.draw()
+                this.ruler.draw(false);
         });
     }
 
@@ -530,7 +530,7 @@ export class Ruler {
 
         this.g = this.timeline.timelineSvg.group().attr("class", "beholder-ruler");
         this.ruler = this.initRuler();
-        this.scaleName = this.findBestScale()[1];
+        this.scaleName = "unset";
         [this.ticks, this.labels] = this.initTicksAndLabels();
         this.panel = this.initPanel();
 
@@ -567,30 +567,6 @@ export class Ruler {
     initTicksAndLabels(): [Array<Line>, Array<Text>] {
         const ticks: Array<Line> = [];
         const labels: Array<Text> = [];
-        const [scale, name] = this.findBestScale();
-        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
-        let j=0;
-        const labelHeight = 3*this.height / 7;
-        for (let i=0; i < this.timeline.width*2; i+=tickWidth) {
-            let height = this.height / 6;
-            if (j % 10 == 0) {
-                height = this.height / 2;
-            } else if (j % 5 == 0) {
-                height = this.height / 3;
-            }
-            if (j % 40 == 0) {
-                const label = this.g
-                                  .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                  .move(i, labelHeight)
-                                  .addClass("beholder-ruler-label");
-                labels.push(label);
-            }
-            const tick = this.g
-                             .line(i, 0, i, height)
-                             .addClass("beholder-ruler-ticks");
-            ticks.push(tick);
-            ++j;
-        }
         return [ticks, labels];
     }
 
@@ -622,16 +598,42 @@ export class Ruler {
 
     }
 
-    draw() {
+    draw(zoom=false) {
+        // set the size of the ruler box
         this.ruler.attr("y", this.y);
         this.ruler.attr("width", this.timeline.timelineSvg.width());
         this.ruler.attr("height", this.height);
-
+        const labelHeight = 3*this.height / 7; // magic number. bad.
+        // if the ruler box has changed height do this
         if (this.resize)
             this.panel.style.setProperty("height", `${this.height}px`);
         this.resize = true;
-
-
+        /*
+         * Ruler Drawing
+         *
+         *  We want to draw a tick every at unit increment. Every 5 we make a
+         *  slightly longer tick. Every 10 we make an even longer notch.
+         *
+         * Epicycles: One first complication
+         *  As the level of zoom changes, we will want to add more tick marks.
+         *  To accomplish this, we use several different timescales.
+         *  We want to draw X number of ticks per pixel (where X < 1).
+         *  We choose the timescale which most closely allows us to do this.
+         *
+         * Epicycles: One second complication
+         *  As the level of zoom changes, we need to transform the text elements
+         *  otherwise they look weird. We scale them in the x direction. We also
+         *  have to translate them along the x direction to keep them left
+         *  aligned.
+         *
+         * Epicycles: One third complication
+         *  The number of ticks grows exponentially as we zoom into the timeline.
+         *  This means we can't draw all ticks. Rather we draw just enough to
+         *  cover the viewport and then a little extra padding to save updates to
+         *  svg elements.
+         *
+         *
+         **/
         const [scale, scaleName] = this.findBestScale();
         let scaleChange = false
         if (this.scaleName != scaleName) {
@@ -639,65 +641,71 @@ export class Ruler {
             this.scaleName = scaleName;
         }
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
-        const labelHeight = 3*this.height / 7;
         let viewStart = this.timeline.zoomHelper.translate[0];
         let viewEnd = viewStart + this.timeline.width * this.timeline.zoomHelper.scale[0];
-        if (scaleChange || viewStart < this.start) {
-            this.start = Math.max(
-                viewStart - (viewEnd - viewStart),
-                this.timeline.xscale.inv(this.timeline.state.startTime)
-            );
-            this.start += this.start % tickWidth;
-        }
         let end = Math.min(
             viewEnd + (viewEnd - viewStart),
             this.timeline.xscale.inv(this.timeline.state.endTime)
         );
-        let j=0;
-        let jrem = Math.floor(this.start / tickWidth);
-        let k=0;
-        for (let i=this.start; i < end || j < this.ticks.length; i+=tickWidth) {
-            let height = this.height / 6;
-            if ((j + jrem) % 40 == 0) {
-                if (k >= this.labels.length) {
-                    const w = this.labels[0].bbox().width;
-                    const label = this.g
-                                      .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                      .move(i, labelHeight)
-                                      .transform({
-                                          scale: this.timeline.zoomHelper.scale,
-                                          translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
-                                      })
-                                      .addClass("beholder-ruler-label");
-                    this.labels.push(label);
-                } else {
-                    const w = this.labels[k].bbox().width;
-                    this.labels[k]
-                        .move(i, labelHeight)
+        // be lazy and don't draw if you can help it!
+        if (!scaleChange && this.start <= viewStart && viewEnd <= end) {
+            if (zoom && this.labels.length) {
+                const labelWidth = this.labels[0].bbox().width;
+                for (let i=0; i < this.labels.length; ++i) {
+                    this.labels[i]
                         .transform({
                             scale: this.timeline.zoomHelper.scale,
-                            translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
+                            translateX: (labelWidth*this.timeline.zoomHelper.scale[0] - labelWidth)/2
                         });
-                    if (scaleChange) {
-                        this.labels[k].text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                    }
                 }
+            }
+            return;
+        }
+        // do all the drawing!
+        this.start = Math.max(
+            viewStart - (viewEnd - viewStart),
+            this.timeline.xscale.inv(this.timeline.state.startTime)
+        );
+        this.start += this.start % tickWidth;
+
+
+        let iOffset = Math.floor(this.start / tickWidth);
+        let k=0;
+        for (let i=0, p=this.start; p < end || i < this.ticks.length; p+=tickWidth, ++i) {
+            let height = this.height / 6;
+            // Draw a label
+            if ((i + iOffset) % 40 == 0) {
+                let label;
+                if (k >= this.labels.length) {
+                    label = this.g
+                                .text(new Date(this.timeline.xscale.call(p)).toISOString().slice(11,23))
+                                .addClass("beholder-ruler-label")
+                    this.labels.push(label);
+                } else {
+                    label = this.labels[k]
+                                .text(new Date(this.timeline.xscale.call(p)).toISOString().slice(11,23));
+                }
+                const labelWidth = this.labels[0].bbox().width;
+                label.move(p, labelHeight)
+                     .transform({
+                         scale: this.timeline.zoomHelper.scale,
+                         translateX: (labelWidth*this.timeline.zoomHelper.scale[0] - labelWidth)/2
+                     });
                 ++k
             }
-            if (j % 40 == 0) {
+            if ((i + iOffset) % 10 == 0) {
                 height = this.height / 2;
-            } else if (j % 5 == 0) {
+            } else if ((i + iOffset) % 5 == 0) {
                 height = this.height / 3;
             }
-            if (j >= this.ticks.length) {
+            if (i >= this.ticks.length) {
                 const tick = this.g
-                                 .line(i, 0, i, height)
+                                 .line(p, 0, p, height)
                                  .addClass("beholder-ruler-ticks");
                 this.ticks.push(tick);
             } else {
-                this.ticks[j].plot(i, 0, i, height);
+                this.ticks[i].plot(p, 0, p, height);
             }
-            ++j;
         }
     }
 }

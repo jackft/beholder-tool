@@ -22,11 +22,17 @@ module.exports = {
   },
   devtool: 'source-map',
   optimization: {
-    minimize: true,
+    minimize: false,
     minimizer: [new TerserPlugin()]
   },
   plugins: [
       new CheckerPlugin()
+  ],
+  externals: [{
+      "formiojs/Formio": {
+        commonjs: "formiojs/Formio"
+      }
+    }
   ],
   module: {
     rules: [

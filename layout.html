@@ -4,6 +4,8 @@
     <script src="bundles/psych-coder.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <link rel='stylesheet' href='/dist/formio.full.css'>
+    <script src='/dist/formio.full.js'></script>
     <style>
         #beholder {
             display: grid;
@@ -28,7 +30,7 @@
         }
 
         .beholder-annotation-table {
-            background: khaki;
+            background: #1c1c21;
             resize: horizontal;
             overflow: hidden;
         }
@@ -51,6 +53,12 @@
             pointer-events: none;
         }
 
+        .beholder-channel {
+            fill: #2c2c32;
+            stroke: #515151;
+            stroke-width: 1px;
+        }
+
         .beholder-ruler {
             fill: #2c2c32;
             stroke: #515151;
@@ -60,6 +68,15 @@
         .beholder-ruler-ticks {
             stroke: #515151;
             stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .beholder-ruler-label {
+            fill: #515151;
+            font-family: "Inconsolata; mono";
+            font-size: 10px;
+            text-anchor: initial;
+            dominant-baseline: hanging;
         }
 
         .beholder-ruler-panel-child {
@@ -73,14 +90,8 @@
             height: 100%;
         }
 
-        .beholder-channel {
-            fill: #2c2c32;
-            stroke: #515151;
-            stroke-width: 1px;
-        }
-
         .beholder-channel-panel {
-            width: 50px;
+            width: 75px;
             background-color: aqua;
         }
 
@@ -147,7 +158,7 @@
     <div id="beholder"></div>
 </div>
 <script>
-
+    window.onload = function() {
     const state = {
         media: {
             src: "/bunny.mp4",
@@ -160,7 +171,7 @@
             ],
             timelineAnnotations: [],
             startTime: 0,
-            endTime: 1000,
+            endTime: 1000*60,
         },
     };
     const layout = {
@@ -170,7 +181,7 @@
         tableLayout: [1, 3, 4, 4],
         mediaLayout: [1,1,2,3],
         channelHeight: 80,
-        treeWidth: 25,
+        treeWidth: 50,
 
         maxMediaInitWidth: 1000,
         maxTimelineInitWidth: 1000,
@@ -186,9 +197,9 @@
         type: "interval",
         label: "blah",
         startFrame: 0,
-        endFrame: 100,
+        endFrame: 1000,
         startTime: 0,
-        endTime: 100,
+        endTime: 1000,
         modifiers: []
     });
     controller.createTimelineAnnotation({
@@ -196,10 +207,10 @@
         channelId: 2,
         type: "interval",
         label: "blah",
-        startFrame: 50,
-        endFrame: 150,
-        startTime: 50,
-        endTime: 150,
+        startFrame: 500,
+        endFrame: 1500,
+        startTime: 500,
+        endTime: 1500,
         modifiers: []
     });
     controller.createTimelineAnnotation({
@@ -207,10 +218,10 @@
         channelId: 2,
         type: "interval",
         label: "blah",
-        startFrame: 151,
-        endFrame: 200,
-        startTime: 151,
-        endTime: 200,
+        startFrame: 1510,
+        endFrame: 2000,
+        startTime: 1510,
+        endTime: 2000,
         modifiers: []
     });
     document.addEventListener("keypress", function(event) {
@@ -222,6 +233,7 @@
             controller.historyHandler.redo();
         }
     });
+    }
 </script>
 </body>
 </html>

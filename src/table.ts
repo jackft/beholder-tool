@@ -1,3 +1,4 @@
+import { Formio } from 'formiojs';
 import { Layout, State, TimelineAnnotationState } from './state';
 import { inJestTest } from './utils';
 
@@ -48,31 +49,78 @@ export class Table {
 
     initTable() {
         if (this.layout.table) {
+            //<div>
+            //  <div class="btn-group" role="group" aria-label="Basic example">
+            //    <button type="button" class="btn btn-secondary">Timeline</button>
+            //    <button type="button" class="btn btn-secondary">Video</button>
+            //    <button type="button" class="btn btn-secondary">Entities</button>
+            //  </div>
+            //</div>
             this.rootElem.setAttribute("class", "beholder-annotation-table");
-            this.rootElem.innerHTML = `
-            <div>
-                <div class="btn-group" role="group" aria-label="Basic example">
-                  <button type="button" class="btn btn-secondary">Timeline</button>
-                  <button type="button" class="btn btn-secondary">Video</button>
-                  <button type="button" class="btn btn-secondary">Entities</button>
-                </div>
-                <div id="formio"></div>
-            </div>`;
-            //Formio.createForm(document.getElementById("formio"),
-            //    {
-            //        components: [
-            //            {
-            //              type: 'textfield',
-            //              key: 'firstName',
-            //              label: 'First Name',
-            //              placeholder: 'Enter your first name.',
-            //              input: true,
-            //              tooltip: 'Enter your <strong>First Name</strong>',
-            //              description: 'Enter your <strong>First Name</strong>'
-            //            }
-            //        ]
-            //    }
-            //)
+            const buttonGroup = document.createElement("div");
+            buttonGroup.setAttribute("class", "btn-group");
+            buttonGroup.setAttribute("role", "group");
+            buttonGroup.setAttribute("aria-label", "Basic example");
+            this.rootElem.appendChild(buttonGroup);
+
+            const timelineButton = document.createElement("button");
+            timelineButton.setAttribute("class", "btn btn-secondary");
+            timelineButton.innerText = "Timeline";
+            buttonGroup.appendChild(timelineButton);
+
+            const video = document.createElement("button");
+            video.setAttribute("class", "btn btn-secondary");
+            video.innerText = "Video";
+            buttonGroup.appendChild(video);
+
+            const entities = document.createElement("button");
+            entities.setAttribute("class", "btn btn-secondary");
+            entities.innerText = "Entities";
+            buttonGroup.appendChild(entities);
+
+
+            const rows = document.createElement("div");
+            this.rootElem.appendChild(rows);
+
+            const formio = document.createElement("div");
+            formio.setAttribute("id", "formio");
+            rows.appendChild(formio);
+
+            const x = Formio.createForm(formio,
+                {
+                    components: [
+                        {
+                          type: 'textfield',
+                          key: 'firstName',
+                          label: 'First Name',
+                          placeholder: 'Enter your first name.',
+                          input: true,
+                          tooltip: 'Enter your <strong>First Name</strong>',
+                          description: 'Enter your <strong>First Name</strong>',
+                          defaultValue: 'jack'
+                        },
+                        {
+                          "type": "textfield",
+                          "label": "howdy",
+                          "description": "Must be exact, and case sensitive.",
+                          "key": "howdy",
+                          "input": true,
+                          "inputType": "text",
+                          "conditional": {
+                            "json": {
+                              "===": [
+                                {
+                                  "var": "data.firstName"
+                                },
+                                "jack"
+                              ]
+                            }
+                          }
+                        }
+                    ]
+                }
+            );
+            console.log(x);
         }
     }
 
