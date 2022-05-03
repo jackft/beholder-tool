@@ -1,4 +1,5 @@
 build:
+	npm run install
 	npm run build
 	npx webpack
 
