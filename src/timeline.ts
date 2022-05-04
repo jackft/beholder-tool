@@ -78,7 +78,7 @@ export class Timeline {
     timelineindex: Cursor
 
     // drawing options
-    treeMargin: number = 2;
+    treeMargin: number = 5;
     width: number = 800;
     height: number = 100;
     treeWidth: number = 15;
@@ -196,31 +196,22 @@ export class Timeline {
 
     sortChannels() {
         this.channels.sort((lhs, rhs) => {
-            if (lhs.state.parentId == rhs.state.parentId) {
-                return lhs.state.id - rhs.state.id;
-            } else if (lhs.state.parentId == rhs.state.id) {
-                return lhs.state.id - rhs.state.id;
-            } else if (lhs.state.id == rhs.state.parentId) {
-                return lhs.state.id - rhs.state.id;
-            } else {
-                if (lhs.state.parentId != null && rhs.state.parentId != null) {
-                    return lhs.state.parentId - rhs.state.parentId;
-                } else if (lhs.state.parentId == null && rhs.state.parentId != null) {
-                    return lhs.state.id - rhs.state.parentId;
-                } else if (lhs.state.parentId != null && rhs.state.parentId == null) {
-                    return lhs.state.parentId - rhs.state.id;
-                }
-                return lhs.state.id - rhs.state.id;
+            let lhsDepth = lhs.depth();
+            let rhsDepth = rhs.depth();
+            if (lhsDepth < rhsDepth) {
+                return lhs.idAtDepth(lhsDepth) - rhs.idAtDepth(lhsDepth);
             }
-            return 0;
+            return lhs.idAtDepth(rhsDepth) - rhs.idAtDepth(rhsDepth);
         });
         console.log(this.channels.map(c => c.state));
+        this.channels.forEach((channel, i) => channel.panel.style.setProperty("order", `${i}`));
     }
 
     createChannel(state: ChannelState) {
         this.channels.push(new Channel(this, state, this.layout));
         this.state.channels.push(state);
         this.sortChannels();
+        this.maxChannelDepth = Math.max(...this.channels.map(c => c.depth()));
     }
 
     updateChannel(state: ChannelState) {
@@ -732,6 +723,8 @@ export class Channel {
     treePath: Polyline = new Polyline();
     panel: HTMLDivElement = document.createElement("div");
     panelBorder: HTMLDivElement = document.createElement("div");
+    channelNameDiv: HTMLSpanElement = document.createElement("div");
+    channelNameSpan: HTMLSpanElement = document.createElement("span");
     channelButtonsDiv: HTMLDivElement = document.createElement("div");
     channelButtons: ChannelButtons = Channel._createChannelButtons();
 
@@ -757,18 +750,18 @@ export class Channel {
     }
 
     _treePathPoints(): PointArray {
-        const depthFrac = this.depth()/(this.timeline.maxChannelDepth + 1);
         // @ts-ignore
         const width = this.timeline.treeSvg.width()-2*this.timeline.treeMargin;
+        const xoffsets = width / (this.timeline.maxChannelDepth + 2);
         let rx, ry, ny, lx: number;
 
         if (this.parent === null) {
-            ry = this.y + this.height/2;
+            ry = 0;
             rx = this.timeline.treeMargin;
         }
         else {
             ry = this.parent.y + this.parent.height/2;
-            rx = this.timeline.treeMargin + (depthFrac*width);
+            rx = this.timeline.treeMargin + xoffsets*this.depth();
         }
         ny = this.y + this.height/2;
         // @ts-ignore
@@ -808,6 +801,9 @@ export class Channel {
         this.timeline.panel.append(this.panel);
         this.panel.appendChild(this.panelBorder);
         this.panelBorder.append(this.channelButtonsDiv);
+        this.panelBorder.append(this.channelNameDiv);
+        this.channelNameDiv.append(this.channelNameSpan);
+        this.channelNameSpan.innerText = this.state.name;
 
         Object.values(this.channelButtons)
               .forEach(v => this.channelButtonsDiv.append(v));
@@ -857,6 +853,11 @@ export class Channel {
         return d;
     }
 
+    idAtDepth(depth: number): number {
+        if (this.depth() <= depth) return this.state.id;
+        return this.parent.idAtDepth(depth);
+    }
+
     //--------------------------------------------------------------------------
 
     /**
@@ -891,6 +892,7 @@ export class Channel {
 
 interface AnnotationEvents {
     "annotation.dragend": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
+    "annotation.drag": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
 }
 
 class TimelineAnnotation {
@@ -919,6 +921,7 @@ class TimelineAnnotation {
         }
         this.events = {
             "annotation.dragend": [],
+            "annotation.drag": []
         };
         this.subscribeEvents();
     }
@@ -1040,6 +1043,10 @@ class TimelineAnnotation {
             }
             this._keepIntervalInBounds();
         }
+        this.events["annotation.drag"].forEach(f => {
+            if (this.dragStartState != null)
+                f({oldState: this.dragStartState, newState: deepCopy(this.state)});
+        });
         this.timeline.drawAnnotations();
     }
 

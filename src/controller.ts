@@ -141,7 +141,7 @@ export class Controller {
 
     initTable(state: State) {
         const element = document.createElement("div");
-        const table = new Table(element, state, this.layout);
+        const table = new Table(element, state.timeline, this.layout);
         this.rootElem.append(element);
         return table;
     }
@@ -274,14 +274,23 @@ export class Controller {
         const undo = () => {
             if (this.timeline === undefined) return;
             this.timeline.deleteTimelineAnnotation(newState.id);
+            if (this.table) {
+                this.table.deleteTimelineAnnotation(newState);
+            }
         };
         const redo = () => {
             if (this.timeline === undefined) return;
             const timelineAnnotatation = this.timeline.createTimelineAnnotation(newState);
             timelineAnnotatation.addEventListener(
-                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState)
+                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState),
+            );
+            timelineAnnotatation.addEventListener(
+                "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState),
             );
             this.timeline.drawAnnotations();
+            if (this.table) {
+                this.table.createTimelineAnnotation(newState);
+            }
         };
         this.historyHandler.do(new StateTransition(redo, undo));
     }
@@ -293,13 +302,19 @@ export class Controller {
         const undo = () => {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(oldState);
+            this.table.updateTimelineAnnotation(oldState);
         };
         const redo = () => {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(newState);
+            this.table.updateTimelineAnnotation(newState);
             console.log(this.table?.update());
         };
         this.historyHandler.do(new StateTransition(redo, undo));
+    }
+
+    updateTimelineAnnotationWithoutTracking(oldState: TimelineAnnotationState, newState: TimelineAnnotationState) {
+        this.table.updateTimelineAnnotationWithoutTracking(newState);
     }
 
     deleteTimelineAnnotation() {
