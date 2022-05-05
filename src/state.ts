@@ -80,4 +80,5 @@ export interface Layout {
 export interface Config {
     state: State,
     layout: Layout
+    readonly?: boolean
 }

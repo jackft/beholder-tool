@@ -139,6 +139,7 @@
             margin: 0;
             font-family: monospace;
             font-size: 8px;
+            line-height: 0;
         }
 
         .beholder-interval > rect{
@@ -209,7 +210,7 @@
         table: true,
         ruler: true
     };
-    const config = {state: state, layout: layout};
+    const config = {state: state, layout: layout, readonly: true};
     const controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
     controller.createTimelineAnnotation({
         id: 0,

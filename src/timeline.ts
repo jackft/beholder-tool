@@ -67,6 +67,7 @@ interface TimelineEvents {
 /** Class representing a multichannel timeline. */
 export class Timeline {
     state: TimelineState
+    readonly: boolean
     ruler: Ruler | null
     channels: Array<Channel>
     timelineAnnotations: Array<TimelineAnnotation> = []
@@ -105,10 +106,11 @@ export class Timeline {
     * @param {HTMLElement} element - The element in which to construct the timeline
     * @param {timelineOption} options - Optional parameters
     */
-    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout) {
+    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false) {
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
+        this.readonly = readonly;
 
         // drawing options
         this.channelHeight = layout.channelHeight ?? 800;
@@ -704,29 +706,31 @@ export class Ruler {
 interface ChannelButtons {
     minimize: HTMLButtonElement,
     delete: HTMLButtonElement,
-    child: HTMLButtonElement
+    addchild: HTMLButtonElement
 };
 
 let channelCounter = 0;
 
 export class Channel {
-    timeline: Timeline;
+    timeline: Timeline
     state: ChannelState
-    parent: Channel | null;
+    parent: Channel | null
     // resize observer things
-    resizeObserver?: ResizeObserver;
-    resize: boolean = true;
+    resizeObserver?: ResizeObserver
+    resize: boolean = true
     // drawn things
-    height: number;
-    y: number;
-    channel: Rect = new Rect();
-    treePath: Polyline = new Polyline();
-    panel: HTMLDivElement = document.createElement("div");
-    panelBorder: HTMLDivElement = document.createElement("div");
-    channelNameDiv: HTMLSpanElement = document.createElement("div");
-    channelNameSpan: HTMLSpanElement = document.createElement("span");
-    channelButtonsDiv: HTMLDivElement = document.createElement("div");
-    channelButtons: ChannelButtons = Channel._createChannelButtons();
+    minimized: boolean =  false
+    oldHeight: number | null = null
+    height: number
+    y: number
+    channel: Rect = new Rect()
+    treePath: Polyline = new Polyline()
+    panel: HTMLDivElement = document.createElement("div")
+    panelBorder: HTMLDivElement = document.createElement("div")
+    channelNameDiv: HTMLSpanElement = document.createElement("div")
+    channelNameSpan: HTMLSpanElement = document.createElement("span")
+    channelButtonsDiv: HTMLDivElement = document.createElement("div")
+    channelButtons: ChannelButtons = Channel._createChannelButtons()
 
     constructor(timeline: Timeline, state: ChannelState, layout: Layout) {
         this.timeline = timeline;
@@ -783,14 +787,14 @@ export class Channel {
         const channelButtons = {
             minimize: document.createElement("button"),
             delete: document.createElement("button"),
-            child: document.createElement("button"),
+            addchild: document.createElement("button"),
         }
-        channelButtons.minimize.innerText = "-";
+        channelButtons.minimize.innerText = "↙";
         channelButtons.minimize.setAttribute("class", "beholder-minimize");
         channelButtons.delete.innerText = "x";
         channelButtons.delete.setAttribute("class", "beholder-delete");
-        channelButtons.child.innerText = "+";
-        channelButtons.child.setAttribute("class", "beholder-child");
+        channelButtons.addchild.innerText = "+";
+        channelButtons.addchild.setAttribute("class", "beholder-child");
         return channelButtons;
     }
 
@@ -807,6 +811,11 @@ export class Channel {
 
         Object.values(this.channelButtons)
               .forEach(v => this.channelButtonsDiv.append(v));
+
+        if (this.timeline.readonly) {
+            this.channelButtons.delete.disabled = true;
+            this.channelButtons.addchild.disabled = true;
+        }
 
         if (inJestTest()) return this.panel;
         this.resizeObserver = new ResizeObserver(entries => {
@@ -864,16 +873,30 @@ export class Channel {
      * Handle events
      */
     subscribeEvents() {
-        this.channelButtons.child.addEventListener("click", (event) => {
-            console.log(this, this.state);
-            this.timeline.events["timeline.createChannel"].forEach(f => {
-                const newState = deepCopy(this.state);
-                newState.id = Math.max(...this.timeline.channels.map(c => c.state.id)) + 1;
-                newState.parentId = this.state.id;
-                newState.name = `c(${newState.name})`;
-                f(newState);
+        if (!this.timeline.readonly) {
+            this.channelButtons.addchild.addEventListener("click", (event) => {
+                this.timeline.events["timeline.createChannel"].forEach(f => {
+                    const newState = deepCopy(this.state);
+                    newState.id = Math.max(...this.timeline.channels.map(c => c.state.id)) + 1;
+                    newState.parentId = this.state.id;
+                    newState.name = `c(${newState.name})`;
+                    f(newState);
+                });
             });
-        });
+        }
+        this.channelButtons.minimize.addEventListener("click", (event) => {
+            if (this.minimized && this.oldHeight !== null) {
+                this.height = this.oldHeight;
+                this.channelButtons.minimize.innerText = '↗';
+                this.minimized = false;
+            } else if (!this.minimized) {
+                this.oldHeight = this.height;
+                this.height = 20;
+                this.minimized = true;
+                this.channelButtons.minimize.innerText = '↙';
+            }
+            this.timeline.draw();
+        })
     }
 
     //--------------------------------------------------------------------------
@@ -998,21 +1021,23 @@ class TimelineAnnotation {
     }
 
     subscribeEvents() {
-        this.r.on("mousedown", (event) => {
-            this.draggedShape = "r";
-            // @ts-ignore
-            this.dragstart(event)
-        });
-        this.l.on("mousedown", (event) => {
-            this.draggedShape = "l";
-            // @ts-ignore
-            this.dragstart(event)
-        });
-        this.rect.on("mousedown", (event) => {
-            this.draggedShape = "rect";
-            // @ts-ignore
-            this.dragstart(event)
-        });
+        if (! this.timeline.readonly) {
+            this.r.on("mousedown", (event) => {
+                this.draggedShape = "r";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+            this.l.on("mousedown", (event) => {
+                this.draggedShape = "l";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+            this.rect.on("mousedown", (event) => {
+                this.draggedShape = "rect";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+        }
     }
 
     dragstart(event: MouseEvent) {

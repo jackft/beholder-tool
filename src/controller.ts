@@ -114,19 +114,23 @@ class HistoryHandler {
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
 export class Controller {
-    state: State;
-    layout: Layout;
-    historyHandler: HistoryHandler = new HistoryHandler();
+    state: State
+    layout: Layout
+    readonly: boolean = false
+    historyHandler: HistoryHandler = new HistoryHandler()
 
     rootElem: HTMLElement
     mediaContainer: HTMLElement | null
     media: Media
-    timeline?: Timeline;
-    table?: Table;
+    timeline?: Timeline
+    table?: Table
     constructor(rootElem: HTMLElement, config: Config) {
         this.rootElem = rootElem;
         this.state = config.state;
         this.layout = config.layout;
+        if (config.readonly !== undefined) {
+            this.readonly = config.readonly;
+        }
         this.media = this.initMedia(this.state.media);
         this.mediaContainer = this.media.element.parentElement;
         if (this.state.timeline != null) {
@@ -141,7 +145,7 @@ export class Controller {
 
     initTable(state: State) {
         const element = document.createElement("div");
-        const table = new Table(element, state.timeline, this.layout);
+        const table = new Table(element, state.timeline, this.layout, this.readonly);
         this.rootElem.append(element);
         return table;
     }
@@ -157,7 +161,7 @@ export class Controller {
         const element = document.createElement("div");
         element.setAttribute("class", "beholder-timeline beholder-background");
         this.rootElem.append(element);
-        const timeline = new Timeline(element, timelineState, this.layout);
+        const timeline = new Timeline(element, timelineState, this.layout, this.readonly);
         return timeline;
     }
 

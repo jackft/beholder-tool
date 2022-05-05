@@ -7,6 +7,7 @@ interface TableEvents {
 }
 
 export class Table {
+    readonly: boolean = false
     rootElem: HTMLElement
     rowsElem: HTMLElement
     channelFilterGroupElem: HTMLElement
@@ -22,7 +23,8 @@ export class Table {
 
     timelineAnnotations: Array<TimelineAnnotation>
 
-    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout) {
+    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false) {
+        this.readonly = readonly;
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
@@ -185,10 +187,10 @@ class TimelineAnnotation {
 
     readonly: boolean
 
-    constructor(table: Table, state: TimelineAnnotationState, readonly=true) {
+    constructor(table: Table, state: TimelineAnnotationState) {
         this.table = table;
         this.state = state;
-        this.readonly = readonly;
+        this.readonly = table.readonly;
 
         if (this.state.type == "interval") {
             this.rootElem = this.initInterval();
