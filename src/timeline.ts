@@ -62,6 +62,7 @@ interface TimelineEvents {
     "timeline.timechange": Array<(event: TimelineTimeChange) => void>
     "timeline.click": Array<(event: MouseEvent) => void>
     "timeline.createChannel": Array<(event: ChannelState) => void>
+    "timeline.createAnnotation": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>
 }
 
 /** Class representing a multichannel timeline. */
@@ -141,6 +142,7 @@ export class Timeline {
             "timeline.timechange": [],
             "timeline.click": [],
             "timeline.createChannel": [],
+            "timeline.createAnnotation": [],
         };
 
         this.subscribeToEvents();
@@ -259,6 +261,12 @@ export class Timeline {
         this.timelineAnnotations[timelineAnnotationIdx].delete();
         this.timelineAnnotations.splice(timelineAnnotationIdx, 1);
         this.state.timelineAnnotations.splice(timelineAnnotationStateIdx, 1);
+    }
+
+    selectTimelineAnnotation(timelineAnnotationId) {
+        this.timelineAnnotations.forEach(x => x.deselect());
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.select();
     }
 
     //--------------------------------------------------------------------------
@@ -789,11 +797,11 @@ export class Channel {
             delete: document.createElement("button"),
             addchild: document.createElement("button"),
         }
-        channelButtons.minimize.innerText = "↙";
+        channelButtons.minimize.innerText = "-";
         channelButtons.minimize.setAttribute("class", "beholder-minimize");
         channelButtons.delete.innerText = "x";
         channelButtons.delete.setAttribute("class", "beholder-delete");
-        channelButtons.addchild.innerText = "+";
+        channelButtons.addchild.innerText = "c";
         channelButtons.addchild.setAttribute("class", "beholder-child");
         return channelButtons;
     }
@@ -887,13 +895,13 @@ export class Channel {
         this.channelButtons.minimize.addEventListener("click", (event) => {
             if (this.minimized && this.oldHeight !== null) {
                 this.height = this.oldHeight;
-                this.channelButtons.minimize.innerText = '↗';
+                this.channelButtons.minimize.innerText = '-';
                 this.minimized = false;
             } else if (!this.minimized) {
                 this.oldHeight = this.height;
                 this.height = 20;
                 this.minimized = true;
-                this.channelButtons.minimize.innerText = '↙';
+                this.channelButtons.minimize.innerText = '+';
             }
             this.timeline.draw();
         })
@@ -916,18 +924,20 @@ export class Channel {
 interface AnnotationEvents {
     "annotation.dragend": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
     "annotation.drag": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
+    "annotation.click": Array<(timelineAnnotationId: number) => void>
 }
 
 class TimelineAnnotation {
-    state: TimelineAnnotationState;
-    timeline: Timeline;
+    state: TimelineAnnotationState
+    timeline: Timeline
+    selected: boolean = false
 
-    g: G = new G();
-    rect: Rect = new Rect();
-    l: Line = new Line();
-    r: Line = new Line();
-    height: number = 0;
-    y: number = 0;
+    g: G = new G()
+    rect: Rect = new Rect()
+    l: Line = new Line()
+    r: Line = new Line()
+    height: number = 0
+    y: number = 0
 
     events: AnnotationEvents;
     dragStartState: TimelineAnnotationState | null = null;
@@ -944,13 +954,17 @@ class TimelineAnnotation {
         }
         this.events = {
             "annotation.dragend": [],
-            "annotation.drag": []
+            "annotation.drag": [],
+            "annotation.click": []
         };
         this.subscribeEvents();
     }
 
     initInterval() {
         const g = this.timeline.timelineSvg.group().attr("class", "beholder-interval");
+        if (this.timeline.readonly) {
+            g.addClass("readonly");
+        }
         this.rect = g.rect();
         this.l = g.line();
         this.r = g.line();
@@ -1022,6 +1036,15 @@ class TimelineAnnotation {
 
     subscribeEvents() {
         if (! this.timeline.readonly) {
+            this._bind_dragging(true);
+        }
+        this.g.on("click", (event) => {
+            this.events["annotation.click"].forEach(f => f(this.state.id));
+        });
+    }
+
+    _bind_dragging(on: boolean) {
+        if (on) {
             this.r.on("mousedown", (event) => {
                 this.draggedShape = "r";
                 // @ts-ignore
@@ -1037,6 +1060,10 @@ class TimelineAnnotation {
                 // @ts-ignore
                 this.dragstart(event)
             });
+        } else {
+            this.r.off("mousedown");
+            this.l.off("mousedown");
+            this.rect.off("mousedown");
         }
     }
 
@@ -1111,6 +1138,20 @@ class TimelineAnnotation {
                 this.state.startTime = this.timeline.xscale.call(this.timeline.width) - width;
                 this.state.endTime = this.timeline.xscale.call(this.timeline.width);
             }
+        }
+    }
+
+    deselect() {
+        this.g.removeClass("selected");
+        this.selected = false;
+        this._bind_dragging(false);
+    }
+
+    select() {
+        this.g.addClass("selected");
+        this.selected = true;
+        if (! this.timeline.readonly) {
+            this._bind_dragging(true);
         }
     }
 }

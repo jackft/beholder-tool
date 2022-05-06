@@ -39,12 +39,40 @@
         .beholder-annotation-table-rows {
             overflow-y: scroll;
             height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
         .beholder-annotation-table-row {
             border: 1px black solid;
             margin: 5px;
             padding: 5px;
+        }
+
+        .beholder-annotation-table-row.selected {
+            background: #d1f1d1;
+        }
+
+        .beholder-annotation-table-row:not(.selected):hover {
+            background: #d1d1d1;
+            cursor: pointer;
+        }
+
+        .beholder-annotation-table-row-time-elem {
+            display: flex;
+            font-size: 12px;
+            justify-content: space-between;
+            font-family: "Inconsolata; mono";
+        }
+
+        .beholder-annotation-table-row-channel-elem {
+            font-size: 12px;
+            color: "#a1a1a1";
+            font-family: "Inconsolata; mono";
+        }
+
+        .beholder-annotation-table-row-time-elem > div {
+            display: inline-block;
         }
 
         .beholder-background {
@@ -142,6 +170,10 @@
             line-height: 0;
         }
 
+        .beholder-interval {
+            cursor: pointer;
+        }
+
         .beholder-interval > rect{
             fill: #0e2692;
             opacity: 0.8;
@@ -156,15 +188,21 @@
             stroke-opacity: 0.2;
             vector-effect: non-scaling-stroke;
         }
-        .beholder-interval:hover:not(.beholder-dragging) > line {
+        .beholder-interval:not(.readonly):hover:not(.beholder-dragging).selected > line {
             stroke-width: 5px;
             stroke-opacity: 1.0;
         }
-        .beholder-interval:hover > line:hover {
+        .beholder-interval:not(.readonly):hover.selected > line:hover {
             cursor: col-resize;
         }
-        .beholder-interval:hover > rect {
+        .beholder-interval:not(.readonly):hover.selected > rect {
             stroke-opacity: 0.8;
+        }
+        .beholder-interval.selected > rect{
+            fill: #587C0C;
+        }
+        .beholder-interval:not(.readonly).selected > rect{
+            cursor: grab;
         }
 
         .beholder-annotation-table > .btn-group {
@@ -190,7 +228,19 @@
                 {id: 1, parentId: null, name: "human gaze", allowedAnnotationIds: []},
                 {id: 2, parentId: null, name: "participant movement", allowedAnnotationIds: []},
             ],
-            timelineAnnotations: [],
+            timelineAnnotations: [
+                {
+                    id: 0,
+                    channelId: 2,
+                    type: "interval",
+                    label: "blah",
+                    startFrame: 0,
+                    endFrame: 1000,
+                    startTime: 0,
+                    endTime: 1000,
+                    modifiers: []
+                }
+            ],
             startTime: 0,
             endTime: 1000*60,
         },
@@ -213,17 +263,6 @@
     const config = {state: state, layout: layout, readonly: true};
     const controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
     controller.createTimelineAnnotation({
-        id: 0,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 0,
-        endFrame: 1000,
-        startTime: 0,
-        endTime: 1000,
-        modifiers: []
-    });
-    controller.createTimelineAnnotation({
         id: 1,
         channelId: 2,
         type: "interval",
@@ -244,6 +283,28 @@
         startTime: 1510,
         endTime: 2000,
         modifiers: [{label: "close", value: true}]
+    });
+    controller.createTimelineAnnotation({
+        id: 3,
+        channelId: 2,
+        type: "interval",
+        label: "blah",
+        startFrame: 3000,
+        endFrame: 5000,
+        startTime: 6000,
+        endTime: 9000,
+        modifiers: [{label: "close", value: true}]
+    });
+    controller.createTimelineAnnotation({
+        id: 4,
+        channelId: 1,
+        type: "interval",
+        label: "blah",
+        startFrame: 0,
+        endFrame: 1000,
+        startTime: 4000,
+        endTime: 8000,
+        modifiers: []
     });
     document.addEventListener("keypress", function(event) {
         console.log(controller.historyHandler);

@@ -18,7 +18,7 @@ export class Table {
     layout: Layout
 
     tabSelected: "timeline" | "media" | "entity"
-    channelSelected: number | null
+    channelIdSelected: number | null = null
     typeSelected: String | null
 
     timelineAnnotations: Array<TimelineAnnotation>
@@ -35,9 +35,9 @@ export class Table {
             "table.resize": [],
         };
 
+        this.initTable();
         this.subscribeToEvents();
 
-        this.initTable();
         this.update();
     }
 
@@ -60,6 +60,14 @@ export class Table {
             });
         });
         mediaResizeObserver.observe(this.rootElem);
+        this.channelFilterElem.addEventListener("input", (event) => {
+            if (+this.channelFilterElem.value < 0) {
+                this.channelIdSelected = null;
+            } else {
+                this.channelIdSelected = +this.channelFilterElem.value;
+            }
+            this.hideAnnotations();
+        });
     }
 
     initTable() {
@@ -130,6 +138,7 @@ export class Table {
     createTimelineAnnotation(state: TimelineAnnotationState) {
         const ta = new TimelineAnnotation(this, state);
         this.timelineAnnotations.push(ta);
+        this.draw();
         return ta;
     }
 
@@ -140,6 +149,7 @@ export class Table {
         this.timelineAnnotations[timelineAnnotationIdx].delete();
         this.timelineAnnotations.splice(timelineAnnotationIdx, 1);
         this.state.timelineAnnotations.splice(timelineAnnotationStateIdx, 1);
+        this.draw();
     }
 
     getTimelineAnnotation(annotationId: number): TimelineAnnotation | null {
@@ -156,6 +166,7 @@ export class Table {
         this.state.timelineAnnotations[timelineAnnotationStateIdx] = state;
 
         timelineAnnotation.draw();
+        this.draw();
     }
 
     updateTimelineAnnotationWithoutTracking(state: TimelineAnnotationState) {
@@ -164,22 +175,57 @@ export class Table {
         if (timelineAnnotation === null || timelineAnnotationStateIdx == -1) return null;
         timelineAnnotation.state = state;
         timelineAnnotation.draw();
+        this.draw();
+    }
+
+    selectTimelineAnnotation(timelineAnnotationId) {
+        this.timelineAnnotations.forEach(x => x.deselect());
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.select();
+    }
+
+    draw() {
+        this.hideAnnotations();
+        this.sortAnnotations();
+    }
+
+    hideAnnotations() {
+        this.timelineAnnotations
+            .forEach(annotation => {
+                if (this.channelIdSelected === null) {
+                    annotation.show();
+                }
+                else if (this.channelIdSelected == annotation.state.channelId) {
+                    annotation.show();
+                } else {
+                    annotation.hide();
+                }
+            });
+    }
+
+    sortAnnotations() {
+        this.timelineAnnotations
+            .sort((lhs, rhs) => lhs.state.startTime - rhs.state.startTime)
+            .forEach((annotation, i) => annotation.rootElem.style.setProperty("order", `${i}`));
     }
 
 }
 
 interface AnnotationEvents {
     "annotation.timechange": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
+    "annotation.click": Array<(timelineAnnotationId: number) => void>
 }
 
 class TimelineAnnotation {
     state: TimelineAnnotationState
     table: Table
+    selected: boolean = false
 
     events: AnnotationEvents
 
     rootElem: HTMLElement
     detailElem: HTMLElement = document.createElement("span");
+    channelElem: HTMLElement = document.createElement("span");
     startElem: HTMLElement = document.createElement("span");
     endElem: HTMLElement = document.createElement("span");
     detailsElem: HTMLDetailsElement
@@ -197,9 +243,21 @@ class TimelineAnnotation {
         }
         this.events = {
             "annotation.timechange": [],
+            "annotation.click": []
         };
         this.subscribeEvents();
         this.draw();
+    }
+
+    addEventListener(name, handler) {
+        this.events[name].push(handler);
+    }
+
+    removeEventListener(name, handler) {
+        if (!this.events.hasOwnProperty(name)) return;
+        const index = this.events[name].indexOf(handler);
+        if (index != -1)
+            this.events[name].splice(index, 1);
     }
 
     initInterval() {
@@ -207,21 +265,38 @@ class TimelineAnnotation {
         elem.setAttribute("class", "beholder-annotation-table-row");
         this.table.rowsElem.appendChild(elem);
 
+        const timeElem = document.createElement("div");
+        timeElem.classList.add("beholder-annotation-table-row-time-elem");
+        const startContainer = document.createElement("div");
+        timeElem.appendChild(startContainer);
+        startContainer.appendChild(this.startElem);
+        const divider = document.createElement("div");
+        timeElem.appendChild(divider);
+        divider.innerHTML = "&#9135;&#9135;&#9135;";
+        const endContainer = document.createElement("div");
+        endContainer.appendChild(this.endElem);
+        timeElem.appendChild(endContainer);
+        elem.appendChild(timeElem);
+
+        const channelElemCont = document.createElement("div");
+        channelElemCont.appendChild(this.channelElem);
+        this.channelElem.classList.add("beholder-annotation-table-row-channel-elem");
+        elem.appendChild(channelElemCont);
+
         this.detailsElem = document.createElement("details");
         const summary = document.createElement("summary");
         const summaryContainer = document.createElement("div");
-        const startContainer = document.createElement("div");
         summary.appendChild(this.detailElem);
-        this.detailElem.innerText = `${this.state.channelId}:${this.state.label}`;
-        summaryContainer.appendChild(startContainer);
-        startContainer.appendChild(this.startElem);
-        const endContainer = document.createElement("div");
-        summaryContainer.appendChild(endContainer);
-        endContainer.appendChild(this.endElem);
         summary.appendChild(summaryContainer);
         this.detailsElem.appendChild(summary);
         elem.appendChild(this.detailsElem);
         return elem;
+    }
+
+    channelName() {
+        const channelStateIdx = this.table.state.channels.map(c=>c.id).indexOf(this.state.channelId);
+        if (channelStateIdx === -1) return this.state.channelId;
+        return this.table.state.channels[channelStateIdx].name
     }
 
     formioReadOnly() {
@@ -249,80 +324,6 @@ class TimelineAnnotation {
         return payload
     }
 
-    formioData() {
-
-        return {
-          components: [
-              {
-                type: "select",
-                key: "label",
-                defaultValue: this.state.label,
-                label: "behavior",
-                tooltip: '<strong>behavior</strong>',
-                input: true,
-                data: {
-                    values: [
-                        {
-                            value: "blah",
-                            label: "Blah"
-                        },
-                        {
-                            value: "blah2",
-                            label: "Blah2"
-                        }
-                    ]
-                }
-              },
-              {
-                type: "textfield",
-                key: "modifier",
-                defaultValue: this.state.label,
-                label: "modifier",
-                tooltip: '<strong>modifier</strong>',
-                input: true,
-                data: {
-                    values: [
-                        {
-                            value: "blah",
-                            label: "Blah"
-                        },
-                        {
-                            value: "blah2",
-                            label: "Blah2"
-                        }
-                    ]
-                },
-                "conditional": {
-                  "json": {
-                    "===": [
-                      {
-                        "var": "data.label"
-                      },
-                      "blah2"
-                    ]
-                  }
-                }
-              },
-              {
-                type: "number",
-                key: "startTime",
-                label: "startTime",
-                tooltip: '<strong>start video frame</strong>',
-                defaultValue: this.state.startTime,
-                disabled: true
-              },
-              {
-                type: "number",
-                key: "endTime",
-                label: "endTime",
-                tooltip: '<strong>end video frame</strong>',
-                defaultValue: this.state.endTime,
-                disabled: true
-              }
-            ]
-        }
-    }
-
     openDetails() {
         this.formElem = document.createElement("div");
         this.detailsElem.appendChild(this.formElem);
@@ -344,15 +345,38 @@ class TimelineAnnotation {
                 this.closeDetails();
             }
         });
+        this.rootElem.addEventListener("click", (event) => {
+            this.events["annotation.click"].forEach(f => f(this.state.id));
+        });
     }
 
     draw() {
-        this.startElem.innerText = `start: ${new Date(this.state.startTime).toISOString().slice(11,23)}`;
-        this.endElem.innerText = `end: ${new Date(this.state.endTime).toISOString().slice(11,23)}`;
+        this.startElem.innerText = `${new Date(this.state.startTime).toISOString().slice(11,23)}`;
+        this.endElem.innerText = `${new Date(this.state.endTime).toISOString().slice(11,23)}`;
+        this.channelElem.innerText = `${this.channelName()}`;
+        this.detailElem.innerText = `${this.state.label}`;
     }
 
     delete() {
         this.rootElem.parentNode.removeChild(this.rootElem);
+    }
+
+    select() {
+        this.rootElem.classList.add("selected");
+        this.selected = true;
+    }
+
+    deselect() {
+        this.rootElem.classList.remove("selected");
+        this.selected = false;
+    }
+
+    hide() {
+        this.rootElem.style.setProperty("display", "none");
+    }
+
+    show() {
+        this.rootElem.style.removeProperty("display");
     }
 
 }

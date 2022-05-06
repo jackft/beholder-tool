@@ -124,6 +124,9 @@ export class Controller {
     media: Media
     timeline?: Timeline
     table?: Table
+
+    // statefulness
+    selectedAnnotationId: number | null
     constructor(rootElem: HTMLElement, config: Config) {
         this.rootElem = rootElem;
         this.state = config.state;
@@ -138,9 +141,15 @@ export class Controller {
         }
         if (this.layout.table !== null) {
             this.table = this.initTable(this.state);
+            const mh = this.media.rootElem.clientHeight;
+            const lh = this.timeline.rootElem.clientHeight;
+            this.table.rootElem.style.setProperty("max-height", `${mh+lh}px `);
         }
         this.setGridLayout();
         this.listeners();
+        this.state.timeline.timelineAnnotations.forEach(state => {
+            this.createTimelineAnnotation(state);
+        });
     }
 
     initTable(state: State) {
@@ -291,9 +300,15 @@ export class Controller {
             timelineAnnotatation.addEventListener(
                 "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState),
             );
+            timelineAnnotatation.addEventListener(
+                "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
+            );
             this.timeline.drawAnnotations();
             if (this.table) {
-                this.table.createTimelineAnnotation(newState);
+                const tableTimelineAnnotation = this.table.createTimelineAnnotation(newState);
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
+                );
             }
         };
         this.historyHandler.do(new StateTransition(redo, undo));
@@ -312,7 +327,6 @@ export class Controller {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(newState);
             this.table.updateTimelineAnnotation(newState);
-            console.log(this.table?.update());
         };
         this.historyHandler.do(new StateTransition(redo, undo));
     }
@@ -323,5 +337,14 @@ export class Controller {
 
     deleteTimelineAnnotation() {
 
+    }
+
+    selectTimelineAnnotation(timelineAnnotationId: number) {
+        if (timelineAnnotationId == this.selectedAnnotationId) return;
+        this.selectedAnnotationId = timelineAnnotationId;
+        this.timeline.selectTimelineAnnotation(timelineAnnotationId);
+        if (this.table) {
+            this.table.selectTimelineAnnotation(timelineAnnotationId);
+        }
     }
 }
