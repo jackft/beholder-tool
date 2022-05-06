@@ -43,12 +43,13 @@ function normalizeEvent(event: MouseEvent): [number, number] {
 
 interface ZoomEvents {
     "zoomHelper.zoom": Array<() => void>,
+    "zoomHelper.pan": Array<() => void>,
 }
 
 export class ZoomHelper {
     svg: Svg
 
-    zoomInProgress: boolean;
+    zoomInProgress: boolean
     zoomFactor: number
     mouseDownP: [number, number]
     lastP: [number, number]
@@ -56,6 +57,7 @@ export class ZoomHelper {
     translate: [number, number]
     original: Box
 
+    disabled: boolean = false
     doPanning: boolean
     doWheelZoom: boolean
     panButton: MouseButton
@@ -91,15 +93,10 @@ export class ZoomHelper {
 
         this.events = {
             "zoomHelper.zoom": [],
+            "zoomHelper.pan": [],
         };
 
-        if (this.doPanning) {
-            this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
-        }
-        const _this = this;
-        if (this.doWheelZoom) {
-            this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
-        }
+        this.enable();
     }
 
     addEventListener(name, handler) {
@@ -113,10 +110,31 @@ export class ZoomHelper {
             this.events[name].splice(index, 1);
     }
 
+    disable() {
+        this.disabled = true;
+        this.svg.off("mousedown.panZoom");
+        this.svg.off("wheel.panZoom");
+    }
+
+    enable() {
+        this.disabled = false;
+        if (this.doPanning) {
+            // @ts-ignore
+            this.svg.on("mousedown.panZoom", (event) => this.panStart(event), this.svg);
+        }
+        const _this = this;
+        if (this.doWheelZoom) {
+            // @ts-ignore
+            this.svg.on("wheel.panZoom", (event) => this.wheelZoom(event), this.svg);
+        }
+    }
+
     resize() {
         this.original.x = 0;
         this.original.y = 0;
+        // @ts-ignore
         this.original.width = this.svg.width();
+        // @ts-ignore
         this.original.height = this.svg.height();
     }
 
@@ -168,6 +186,7 @@ export class ZoomHelper {
         let yNew = this.lastP[1] + yDelta * this.scale[1];
         this.translate = [xNew, yNew]
         this.transform();
+        this.events["zoomHelper.pan"].forEach(f => f());
     }
 
     panStop(event: MouseEvent) {

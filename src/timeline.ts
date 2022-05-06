@@ -62,11 +62,13 @@ interface TimelineEvents {
     "timeline.timechange": Array<(event: TimelineTimeChange) => void>
     "timeline.click": Array<(event: MouseEvent) => void>
     "timeline.createChannel": Array<(event: ChannelState) => void>
+    "timeline.createAnnotation": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>
 }
 
 /** Class representing a multichannel timeline. */
 export class Timeline {
     state: TimelineState
+    readonly: boolean
     ruler: Ruler | null
     channels: Array<Channel>
     timelineAnnotations: Array<TimelineAnnotation> = []
@@ -78,7 +80,7 @@ export class Timeline {
     timelineindex: Cursor
 
     // drawing options
-    treeMargin: number = 2;
+    treeMargin: number = 5;
     width: number = 800;
     height: number = 100;
     treeWidth: number = 15;
@@ -105,10 +107,11 @@ export class Timeline {
     * @param {HTMLElement} element - The element in which to construct the timeline
     * @param {timelineOption} options - Optional parameters
     */
-    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout) {
+    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false) {
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
+        this.readonly = readonly;
 
         // drawing options
         this.channelHeight = layout.channelHeight ?? 800;
@@ -139,6 +142,7 @@ export class Timeline {
             "timeline.timechange": [],
             "timeline.click": [],
             "timeline.createChannel": [],
+            "timeline.createAnnotation": [],
         };
 
         this.subscribeToEvents();
@@ -194,9 +198,24 @@ export class Timeline {
 
     //--------------------------------------------------------------------------
 
+    sortChannels() {
+        this.channels.sort((lhs, rhs) => {
+            let lhsDepth = lhs.depth();
+            let rhsDepth = rhs.depth();
+            if (lhsDepth < rhsDepth) {
+                return lhs.idAtDepth(lhsDepth) - rhs.idAtDepth(lhsDepth);
+            }
+            return lhs.idAtDepth(rhsDepth) - rhs.idAtDepth(rhsDepth);
+        });
+        console.log(this.channels.map(c => c.state));
+        this.channels.forEach((channel, i) => channel.panel.style.setProperty("order", `${i}`));
+    }
+
     createChannel(state: ChannelState) {
         this.channels.push(new Channel(this, state, this.layout));
         this.state.channels.push(state);
+        this.sortChannels();
+        this.maxChannelDepth = Math.max(...this.channels.map(c => c.depth()));
     }
 
     updateChannel(state: ChannelState) {
@@ -205,6 +224,7 @@ export class Timeline {
         if (channel === null || channelStateIdx == -1) return null;
         channel.state = state;
         this.state.channels[channelStateIdx] = state;
+        this.sortChannels();
     }
 
     deleteChannel(channelId) {
@@ -214,6 +234,7 @@ export class Timeline {
         this.channels[channelIdx].delete();
         this.channels.splice(channelIdx, 1);
         this.state.channels.splice(channelStateIdx, 1);
+        this.sortChannels();
     }
 
     createTimelineAnnotation(state: TimelineAnnotationState) {
@@ -242,6 +263,12 @@ export class Timeline {
         this.state.timelineAnnotations.splice(timelineAnnotationStateIdx, 1);
     }
 
+    selectTimelineAnnotation(timelineAnnotationId) {
+        this.timelineAnnotations.forEach(x => x.deselect());
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.select();
+    }
+
     //--------------------------------------------------------------------------
 
     addEventListener(name, handler) {
@@ -263,6 +290,7 @@ export class Timeline {
             });
         });
         timelineResizeObserver.observe(this.timelineSvg.node);
+        // @ts-ignore
         this.timelineSvg.on("click", (event, cb, context) => {
                 this.events["timeline.click"].forEach(f => f(event));
         });
@@ -271,7 +299,11 @@ export class Timeline {
         this.timelineindex.subscribeEvents();
         this.zoomHelper.addEventListener("zoomHelper.zoom", () => {
             if (this.ruler !== null)
-                this.ruler.draw()
+                this.ruler.draw(true);
+        });
+        this.zoomHelper.addEventListener("zoomHelper.pan", () => {
+            if (this.ruler !== null)
+                this.ruler.draw(false);
         });
     }
 
@@ -294,11 +326,14 @@ export class Timeline {
         this.width = width;
         this.height = height;
 
+        // @ts-ignore
         this.xscale = new LinearScale([0, this.timelineSvg.width()], [this.state.startTime, this.state.endTime]);
     }
 
     resizeFullWidth() {
+        // @ts-ignore
         const width = this.rootElem.clientWidth - this.treeSvg.width() - this.panel.clientWidth;
+        // @ts-ignore
         this.resize(width, this.treeSvg.height());
     }
 
@@ -324,6 +359,7 @@ export class Timeline {
         let y = this.ruler !== null ? this.ruler.height : 0;
         this.channels.forEach(channel => {channel.y = y; y += channel.height; channel.draw();})
         if (y != this.timelineSvg.height()) {
+            // @ts-ignore
             this.resize(this.timelineSvg.width(), y);
         }
     }
@@ -425,6 +461,7 @@ class Cursor {
     subscribeEvents() {
         if (inJestTest()) return;
         if (this.state.type === "cursor") {
+            // @ts-ignore
             this.timeline.timelineSvg.on("mousemove", (event) => this.mousemove(event));
         }
         if (this.state.type === "index") {
@@ -473,14 +510,18 @@ export class Ruler {
     y: number;
 
     // resize observer things
-    resizeObserver?: ResizeObserver;
-    resize: boolean = true;
+    resizeObserver?: ResizeObserver
+    resize: boolean = true
 
-    panel: HTMLDivElement = document.createElement("div");
-    panelBorder: HTMLDivElement = document.createElement("div");
-    ruler: Rect = new Rect();
-    ticks: Array<Line>;
-    labels: Array<Text>;
+    scaleName: String
+    start: number = 0
+
+    panel: HTMLDivElement = document.createElement("div")
+    panelBorder: HTMLDivElement = document.createElement("div")
+    ruler: Rect = new Rect()
+    g: G
+    ticks: Array<Line>
+    labels: Array<Text>
 
     constructor(timeline: Timeline, layout: Layout) {
         this.timeline = timeline;
@@ -488,7 +529,9 @@ export class Ruler {
         this.y = 0;
         this.height = 25;
 
+        this.g = this.timeline.timelineSvg.group().attr("class", "beholder-ruler");
         this.ruler = this.initRuler();
+        this.scaleName = "unset";
         [this.ticks, this.labels] = this.initTicksAndLabels();
         this.panel = this.initPanel();
 
@@ -496,13 +539,14 @@ export class Ruler {
     }
 
     initRuler() {
-        const ruler = this.timeline.timelineSvg
+        const ruler = this.g
+                          // @ts-ignore
                           .rect(this.timeline.timelineSvg.width(), this.height)
                           .addClass("beholder-ruler");
         return ruler;
     }
 
-    findBestScale() {
+    findBestScale(): [LinearScale, String] {
         const milliseconds = this.timeline.state.endTime - this.timeline.state.startTime;
         const width = this.timeline.width * (this.timeline.width / this.timeline.timelineSvg.viewbox().width);
         const target = 10 / 1; // 10 pixels per tick
@@ -518,35 +562,12 @@ export class Ruler {
                 scaleName = name;
             }
         });
-        return bestScale;
+        return [bestScale, scaleName];
     }
 
     initTicksAndLabels(): [Array<Line>, Array<Text>] {
         const ticks: Array<Line> = [];
         const labels: Array<Text> = [];
-        const scale = this.findBestScale();
-        const tickWidth = this.timeline.xscale.inv(scale.inv(1));
-        let j=0;
-        for (let i=0; i < this.timeline.width; i+=tickWidth) {
-            let height = this.height / 6;
-            if (j % 10 == 0) {
-                height = this.height / 2;
-            } else if (j % 5 == 0) {
-                height = this.height / 3;
-            }
-            if (j % 40 == 0) {
-                const label = this.timeline.timelineSvg
-                                  .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                  .move(i, height - height/10)
-                                  .addClass("beholder-ruler-label");
-                labels.push(label);
-            }
-            const tick = this.timeline.timelineSvg
-                             .line(i, 0, i, height)
-                             .addClass("beholder-ruler-ticks");
-            ticks.push(tick);
-            ++j;
-        }
         return [ticks, labels];
     }
 
@@ -574,86 +595,150 @@ export class Ruler {
         return this.panel;
     }
 
-    draw() {
+    displayTime() {
+
+    }
+
+    draw(zoom=false) {
+        // set the size of the ruler box
         this.ruler.attr("y", this.y);
         this.ruler.attr("width", this.timeline.timelineSvg.width());
         this.ruler.attr("height", this.height);
-
+        const labelHeight = 3*this.height / 7; // magic number. bad.
+        // if the ruler box has changed height do this
         if (this.resize)
             this.panel.style.setProperty("height", `${this.height}px`);
         this.resize = true;
-
-
-        const scale = this.findBestScale();
+        /*
+         * Ruler Drawing
+         *
+         *  We want to draw a tick every at unit increment. Every 5 we make a
+         *  slightly longer tick. Every 10 we make an even longer notch.
+         *
+         * Epicycles: One first complication
+         *  As the level of zoom changes, we will want to add more tick marks.
+         *  To accomplish this, we use several different timescales.
+         *  We want to draw X number of ticks per pixel (where X < 1).
+         *  We choose the timescale which most closely allows us to do this.
+         *
+         * Epicycles: One second complication
+         *  As the level of zoom changes, we need to transform the text elements
+         *  otherwise they look weird. We scale them in the x direction. We also
+         *  have to translate them along the x direction to keep them left
+         *  aligned.
+         *
+         * Epicycles: One third complication
+         *  The number of ticks grows exponentially as we zoom into the timeline.
+         *  This means we can't draw all ticks. Rather we draw just enough to
+         *  cover the viewport and then a little extra padding to save updates to
+         *  svg elements.
+         *
+         *
+         **/
+        const [scale, scaleName] = this.findBestScale();
+        let scaleChange = false
+        if (this.scaleName != scaleName) {
+            scaleChange = true;
+            this.scaleName = scaleName;
+        }
         const tickWidth = this.timeline.xscale.inv(scale.inv(1));
-        const labelHeight = 3*this.height / 7;
-        let j=0;
-        let k=0;
-        for (let i=0; i < this.timeline.width || j < this.ticks.length; i+=tickWidth) {
-            let height = this.height / 6;
-            if (j % 40 == 0) {
-                if (k >= this.labels.length) {
-                    const label = this.timeline.timelineSvg
-                                      .text(new Date(this.timeline.xscale.call(i)).toISOString().slice(11,23))
-                                      .move(i, labelHeight)
-                                      .addClass("beholder-ruler-label");
-                    this.labels.push(label);
-                } else {
-                    const w = this.labels[k].bbox().width;
-                    this.labels[k]
-                        .move(i, labelHeight)
+        let viewStart = this.timeline.zoomHelper.translate[0];
+        let viewEnd = viewStart + this.timeline.width * this.timeline.zoomHelper.scale[0];
+        let end = Math.min(
+            viewEnd + (viewEnd - viewStart),
+            this.timeline.xscale.inv(this.timeline.state.endTime)
+        );
+        // be lazy and don't draw if you can help it!
+        if (!scaleChange && this.start <= viewStart && viewEnd <= end) {
+            if (zoom && this.labels.length) {
+                const labelWidth = this.labels[0].bbox().width;
+                for (let i=0; i < this.labels.length; ++i) {
+                    this.labels[i]
                         .transform({
                             scale: this.timeline.zoomHelper.scale,
-                            translateX: (w*this.timeline.zoomHelper.scale[0] - w)/2
+                            translateX: (labelWidth*this.timeline.zoomHelper.scale[0] - labelWidth)/2
                         });
                 }
+            }
+            return;
+        }
+        // do all the drawing!
+        this.start = Math.max(
+            viewStart - (viewEnd - viewStart),
+            this.timeline.xscale.inv(this.timeline.state.startTime)
+        );
+        this.start += this.start % tickWidth;
+
+
+        let iOffset = Math.floor(this.start / tickWidth);
+        let k=0;
+        for (let i=0, p=this.start; p < end || i < this.ticks.length; p+=tickWidth, ++i) {
+            let height = this.height / 6;
+            // Draw a label
+            if ((i + iOffset) % 40 == 0) {
+                let label;
+                if (k >= this.labels.length) {
+                    label = this.g
+                                .text(new Date(this.timeline.xscale.call(p)).toISOString().slice(11,23))
+                                .addClass("beholder-ruler-label")
+                    this.labels.push(label);
+                } else {
+                    label = this.labels[k]
+                                .text(new Date(this.timeline.xscale.call(p)).toISOString().slice(11,23));
+                }
+                const labelWidth = this.labels[0].bbox().width;
+                label.move(p, labelHeight)
+                     .transform({
+                         scale: this.timeline.zoomHelper.scale,
+                         translateX: (labelWidth*this.timeline.zoomHelper.scale[0] - labelWidth)/2
+                     });
                 ++k
             }
-            if (j % 40 == 0) {
+            if ((i + iOffset) % 10 == 0) {
                 height = this.height / 2;
-            } else if (j % 5 == 0) {
+            } else if ((i + iOffset) % 5 == 0) {
                 height = this.height / 3;
             }
-            if (j >= this.ticks.length) {
-                const tick = this.timeline.timelineSvg
-                                 .line(i, 0, i, height)
+            if (i >= this.ticks.length) {
+                const tick = this.g
+                                 .line(p, 0, p, height)
                                  .addClass("beholder-ruler-ticks");
                 this.ticks.push(tick);
             } else {
-                this.ticks[j].plot(i, 0, i, height);
+                this.ticks[i].plot(p, 0, p, height);
             }
-            ++j;
         }
-
-
-        let y = this.y + this.height;
     }
 }
 
 interface ChannelButtons {
     minimize: HTMLButtonElement,
     delete: HTMLButtonElement,
-    child: HTMLButtonElement
+    addchild: HTMLButtonElement
 };
 
 let channelCounter = 0;
 
 export class Channel {
-    timeline: Timeline;
+    timeline: Timeline
     state: ChannelState
-    parent: Channel | null;
+    parent: Channel | null
     // resize observer things
-    resizeObserver?: ResizeObserver;
-    resize: boolean = true;
+    resizeObserver?: ResizeObserver
+    resize: boolean = true
     // drawn things
-    height: number;
-    y: number;
-    channel: Rect = new Rect();
-    treePath: Polyline = new Polyline();
-    panel: HTMLDivElement = document.createElement("div");
-    panelBorder: HTMLDivElement = document.createElement("div");
-    channelButtonsDiv: HTMLDivElement = document.createElement("div");
-    channelButtons: ChannelButtons = Channel._createChannelButtons();
+    minimized: boolean =  false
+    oldHeight: number | null = null
+    height: number
+    y: number
+    channel: Rect = new Rect()
+    treePath: Polyline = new Polyline()
+    panel: HTMLDivElement = document.createElement("div")
+    panelBorder: HTMLDivElement = document.createElement("div")
+    channelNameDiv: HTMLSpanElement = document.createElement("div")
+    channelNameSpan: HTMLSpanElement = document.createElement("span")
+    channelButtonsDiv: HTMLDivElement = document.createElement("div")
+    channelButtons: ChannelButtons = Channel._createChannelButtons()
 
     constructor(timeline: Timeline, state: ChannelState, layout: Layout) {
         this.timeline = timeline;
@@ -677,19 +762,21 @@ export class Channel {
     }
 
     _treePathPoints(): PointArray {
-        const depthFrac = this.depth()/(this.timeline.maxChannelDepth + 1);
+        // @ts-ignore
         const width = this.timeline.treeSvg.width()-2*this.timeline.treeMargin;
+        const xoffsets = width / (this.timeline.maxChannelDepth + 2);
         let rx, ry, ny, lx: number;
 
         if (this.parent === null) {
-            ry = this.y + this.height/2;
-            rx = 0;
+            ry = 0;
+            rx = this.timeline.treeMargin;
         }
         else {
             ry = this.parent.y + this.parent.height/2;
-            rx = this.timeline.treeMargin + (depthFrac*width);
+            rx = this.timeline.treeMargin + xoffsets*this.depth();
         }
         ny = this.y + this.height/2;
+        // @ts-ignore
         lx = this.timeline.treeSvg.width();
         return new PointArray([
             [rx, ry],
@@ -708,14 +795,14 @@ export class Channel {
         const channelButtons = {
             minimize: document.createElement("button"),
             delete: document.createElement("button"),
-            child: document.createElement("button"),
+            addchild: document.createElement("button"),
         }
         channelButtons.minimize.innerText = "-";
         channelButtons.minimize.setAttribute("class", "beholder-minimize");
         channelButtons.delete.innerText = "x";
         channelButtons.delete.setAttribute("class", "beholder-delete");
-        channelButtons.child.innerText = "+";
-        channelButtons.child.setAttribute("class", "beholder-child");
+        channelButtons.addchild.innerText = "c";
+        channelButtons.addchild.setAttribute("class", "beholder-child");
         return channelButtons;
     }
 
@@ -726,9 +813,17 @@ export class Channel {
         this.timeline.panel.append(this.panel);
         this.panel.appendChild(this.panelBorder);
         this.panelBorder.append(this.channelButtonsDiv);
+        this.panelBorder.append(this.channelNameDiv);
+        this.channelNameDiv.append(this.channelNameSpan);
+        this.channelNameSpan.innerText = this.state.name;
 
         Object.values(this.channelButtons)
               .forEach(v => this.channelButtonsDiv.append(v));
+
+        if (this.timeline.readonly) {
+            this.channelButtons.delete.disabled = true;
+            this.channelButtons.addchild.disabled = true;
+        }
 
         if (inJestTest()) return this.panel;
         this.resizeObserver = new ResizeObserver(entries => {
@@ -744,6 +839,7 @@ export class Channel {
 
     initChannel() {
         const channel = this.timeline.timelineSvg
+                            // @ts-ignore
                             .rect(this.timeline.timelineSvg.width(), this.height)
                             .addClass("beholder-channel");
         return channel;
@@ -774,22 +870,41 @@ export class Channel {
         return d;
     }
 
+    idAtDepth(depth: number): number {
+        if (this.depth() <= depth) return this.state.id;
+        return this.parent.idAtDepth(depth);
+    }
+
     //--------------------------------------------------------------------------
 
     /**
      * Handle events
      */
     subscribeEvents() {
-        this.channelButtons.child.addEventListener("click", (event) => {
-            console.log(this, this.state);
-            this.timeline.events["timeline.createChannel"].forEach(f => {
-                const newState = deepCopy(this.state);
-                newState.id = Math.max(...this.timeline.channels.map(c => c.state.id)) + 1;
-                newState.parentId = this.state.id;
-                newState.name = `c(${newState.name})`;
-                f(newState);
+        if (!this.timeline.readonly) {
+            this.channelButtons.addchild.addEventListener("click", (event) => {
+                this.timeline.events["timeline.createChannel"].forEach(f => {
+                    const newState = deepCopy(this.state);
+                    newState.id = Math.max(...this.timeline.channels.map(c => c.state.id)) + 1;
+                    newState.parentId = this.state.id;
+                    newState.name = `c(${newState.name})`;
+                    f(newState);
+                });
             });
-        });
+        }
+        this.channelButtons.minimize.addEventListener("click", (event) => {
+            if (this.minimized && this.oldHeight !== null) {
+                this.height = this.oldHeight;
+                this.channelButtons.minimize.innerText = '-';
+                this.minimized = false;
+            } else if (!this.minimized) {
+                this.oldHeight = this.height;
+                this.height = 20;
+                this.minimized = true;
+                this.channelButtons.minimize.innerText = '+';
+            }
+            this.timeline.draw();
+        })
     }
 
     //--------------------------------------------------------------------------
@@ -808,18 +923,21 @@ export class Channel {
 
 interface AnnotationEvents {
     "annotation.dragend": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
+    "annotation.drag": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
+    "annotation.click": Array<(timelineAnnotationId: number) => void>
 }
 
 class TimelineAnnotation {
-    state: TimelineAnnotationState;
-    timeline: Timeline;
+    state: TimelineAnnotationState
+    timeline: Timeline
+    selected: boolean = false
 
-    g: G = new G();
-    rect: Rect = new Rect();
-    l: Line = new Line();
-    r: Line = new Line();
-    height: number = 0;
-    y: number = 0;
+    g: G = new G()
+    rect: Rect = new Rect()
+    l: Line = new Line()
+    r: Line = new Line()
+    height: number = 0
+    y: number = 0
 
     events: AnnotationEvents;
     dragStartState: TimelineAnnotationState | null = null;
@@ -836,12 +954,17 @@ class TimelineAnnotation {
         }
         this.events = {
             "annotation.dragend": [],
+            "annotation.drag": [],
+            "annotation.click": []
         };
         this.subscribeEvents();
     }
 
     initInterval() {
         const g = this.timeline.timelineSvg.group().attr("class", "beholder-interval");
+        if (this.timeline.readonly) {
+            g.addClass("readonly");
+        }
         this.rect = g.rect();
         this.l = g.line();
         this.r = g.line();
@@ -873,14 +996,17 @@ class TimelineAnnotation {
             this.rect.off("mousedown");
             this.r.on("mousedown", (event) => {
                 this.draggedShape = "r";
+                // @ts-ignore
                 this.dragstart(event)
             });
             this.l.on("mousedown", (event) => {
                 this.draggedShape = "l";
+                // @ts-ignore
                 this.dragstart(event)
             });
             this.rect.on("mousedown", (event) => {
                 this.draggedShape = "rect";
+                // @ts-ignore
                 this.dragstart(event)
             });
             const tmp = this.state.startTime;
@@ -909,21 +1035,40 @@ class TimelineAnnotation {
     }
 
     subscribeEvents() {
-        this.r.on("mousedown", (event) => {
-            this.draggedShape = "r";
-            this.dragstart(event)
-        });
-        this.l.on("mousedown", (event) => {
-            this.draggedShape = "l";
-            this.dragstart(event)
-        });
-        this.rect.on("mousedown", (event) => {
-            this.draggedShape = "rect";
-            this.dragstart(event)
+        if (! this.timeline.readonly) {
+            this._bind_dragging(true);
+        }
+        this.g.on("click", (event) => {
+            this.events["annotation.click"].forEach(f => f(this.state.id));
         });
     }
 
+    _bind_dragging(on: boolean) {
+        if (on) {
+            this.r.on("mousedown", (event) => {
+                this.draggedShape = "r";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+            this.l.on("mousedown", (event) => {
+                this.draggedShape = "l";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+            this.rect.on("mousedown", (event) => {
+                this.draggedShape = "rect";
+                // @ts-ignore
+                this.dragstart(event)
+            });
+        } else {
+            this.r.off("mousedown");
+            this.l.off("mousedown");
+            this.rect.off("mousedown");
+        }
+    }
+
     dragstart(event: MouseEvent) {
+        this.timeline.zoomHelper.disable();
         this.timeline.timelineSvg.addClass("beholder-interval-resize");
         this.g.addClass("beholder-dragging");
         this.dragStartState = deepCopy(this.state);
@@ -950,10 +1095,15 @@ class TimelineAnnotation {
             }
             this._keepIntervalInBounds();
         }
+        this.events["annotation.drag"].forEach(f => {
+            if (this.dragStartState != null)
+                f({oldState: this.dragStartState, newState: deepCopy(this.state)});
+        });
         this.timeline.drawAnnotations();
     }
 
     dragend(event: MouseEvent) {
+        this.timeline.zoomHelper.enable();
         this.timeline.timelineSvg.removeClass("beholder-interval-resize");
         this.g.removeClass("beholder-dragging");
         const [xMouse, yMouse] = normalizeEvent(event);
@@ -988,6 +1138,20 @@ class TimelineAnnotation {
                 this.state.startTime = this.timeline.xscale.call(this.timeline.width) - width;
                 this.state.endTime = this.timeline.xscale.call(this.timeline.width);
             }
+        }
+    }
+
+    deselect() {
+        this.g.removeClass("selected");
+        this.selected = false;
+        this._bind_dragging(false);
+    }
+
+    select() {
+        this.g.addClass("selected");
+        this.selected = true;
+        if (! this.timeline.readonly) {
+            this._bind_dragging(true);
         }
     }
 }

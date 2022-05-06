@@ -16,9 +16,10 @@
 
 
 
-import { Channel, Timeline } from './timeline';
-import { Config, Layout, State, ChannelState, TimelineState, MediaState, TimelineAnnotationState } from './state';
 import { Media, Video } from './media';
+import { Timeline } from './timeline';
+import { Table } from './table';
+import { Config, Layout, State, ChannelState, TimelineState, MediaState, TimelineAnnotationState } from './state';
 
 function undoCreateChannel(timeline: Timeline, channelId: number) {
     const c = timeline.getChannel(channelId);
@@ -113,36 +114,49 @@ class HistoryHandler {
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
 export class Controller {
-    state: State;
-    layout: Layout;
-    historyHandler: HistoryHandler = new HistoryHandler();
+    state: State
+    layout: Layout
+    readonly: boolean = false
+    historyHandler: HistoryHandler = new HistoryHandler()
 
     rootElem: HTMLElement
     mediaContainer: HTMLElement | null
     media: Media
-    timeline?: Timeline;
-    table: HTMLElement = document.createElement("div");
+    timeline?: Timeline
+    table?: Table
+
+    // statefulness
+    selectedAnnotationId: number | null
     constructor(rootElem: HTMLElement, config: Config) {
         this.rootElem = rootElem;
         this.state = config.state;
         this.layout = config.layout;
-        if (config.layout.table) {
-            this.table.setAttribute("class", "beholder-annotation-table");
-            this.table.innerHTML = `
-            <div class="btn-group" role="group" aria-label="Basic example">
-              <button type="button" class="btn btn-secondary">Left</button>
-              <button type="button" class="btn btn-secondary">Middle</button>
-              <button type="button" class="btn btn-secondary">Right</button>
-            </div>`;
-            this.rootElem.appendChild(this.table);
+        if (config.readonly !== undefined) {
+            this.readonly = config.readonly;
         }
         this.media = this.initMedia(this.state.media);
         this.mediaContainer = this.media.element.parentElement;
         if (this.state.timeline != null) {
             this.timeline = this.initTimeline(this.state.timeline);
         }
+        if (this.layout.table !== null) {
+            this.table = this.initTable(this.state);
+            const mh = this.media.rootElem.clientHeight;
+            const lh = this.timeline.rootElem.clientHeight;
+            this.table.rootElem.style.setProperty("max-height", `${mh+lh}px `);
+        }
         this.setGridLayout();
         this.listeners();
+        this.state.timeline.timelineAnnotations.forEach(state => {
+            this.createTimelineAnnotation(state);
+        });
+    }
+
+    initTable(state: State) {
+        const element = document.createElement("div");
+        const table = new Table(element, state.timeline, this.layout, this.readonly);
+        this.rootElem.append(element);
+        return table;
     }
 
     initMedia(mediaState: MediaState) {
@@ -156,7 +170,7 @@ export class Controller {
         const element = document.createElement("div");
         element.setAttribute("class", "beholder-timeline beholder-background");
         this.rootElem.append(element);
-        const timeline = new Timeline(element, timelineState, this.layout);
+        const timeline = new Timeline(element, timelineState, this.layout, this.readonly);
         return timeline;
     }
 
@@ -188,12 +202,12 @@ export class Controller {
             );
         }
 
-        if (this.layout.tableLayout !== undefined) {
-            this.table.style.setProperty(
+        if (this.table !== undefined && this.layout.tableLayout !== undefined) {
+            this.table.rootElem.style.setProperty(
                 "grid-row",
                 `${this.layout.tableLayout[0]} / ${this.layout.tableLayout[2]}`
             );
-            this.table.style.setProperty(
+            this.table.rootElem.style.setProperty(
                 "grid-column",
                 `${this.layout.tableLayout[1]} / ${this.layout.tableLayout[3]}`
             );
@@ -273,14 +287,29 @@ export class Controller {
         const undo = () => {
             if (this.timeline === undefined) return;
             this.timeline.deleteTimelineAnnotation(newState.id);
+            if (this.table) {
+                this.table.deleteTimelineAnnotation(newState);
+            }
         };
         const redo = () => {
             if (this.timeline === undefined) return;
             const timelineAnnotatation = this.timeline.createTimelineAnnotation(newState);
             timelineAnnotatation.addEventListener(
-                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState)
+                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState),
+            );
+            timelineAnnotatation.addEventListener(
+                "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState),
+            );
+            timelineAnnotatation.addEventListener(
+                "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
             );
             this.timeline.drawAnnotations();
+            if (this.table) {
+                const tableTimelineAnnotation = this.table.createTimelineAnnotation(newState);
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
+                );
+            }
         };
         this.historyHandler.do(new StateTransition(redo, undo));
     }
@@ -292,15 +321,30 @@ export class Controller {
         const undo = () => {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(oldState);
+            this.table.updateTimelineAnnotation(oldState);
         };
         const redo = () => {
             if (this.timeline === undefined) return;
             this.timeline.updateTimelineAnnotation(newState);
+            this.table.updateTimelineAnnotation(newState);
         };
         this.historyHandler.do(new StateTransition(redo, undo));
     }
 
+    updateTimelineAnnotationWithoutTracking(oldState: TimelineAnnotationState, newState: TimelineAnnotationState) {
+        this.table.updateTimelineAnnotationWithoutTracking(newState);
+    }
+
     deleteTimelineAnnotation() {
 
+    }
+
+    selectTimelineAnnotation(timelineAnnotationId: number) {
+        if (timelineAnnotationId == this.selectedAnnotationId) return;
+        this.selectedAnnotationId = timelineAnnotationId;
+        this.timeline.selectTimelineAnnotation(timelineAnnotationId);
+        if (this.table) {
+            this.table.selectTimelineAnnotation(timelineAnnotationId);
+        }
     }
 }

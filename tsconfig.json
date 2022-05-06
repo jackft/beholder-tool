@@ -11,6 +11,6 @@
     "declaration": true,
     "noImplicitAny": false,
 
-    "strict": true
+    "strict": false
   }
 }
