@@ -66,6 +66,10 @@ function redoDeleteChannel(timeline: Timeline, channelId: number) {
     c.delete();
 }
 
+function normalizeEvent(event: MouseEvent): [number, number] {
+    return [event.clientX, event.clientY];
+}
+
 class StateTransition {
     doCallback: () => void;
     undoCallback:() => void;
@@ -241,8 +245,39 @@ export class Controller {
             this.timeline.addEventListener("timeline.createChannel", (state) => {
                 this.createChannel(state)
             });
+            if (this.media !== undefined && this.media instanceof Video) {
+                this.timeline.addEventListener("timeline.click", (event) => {
+                    const time = this.timeline.event2ms(event);
+                    this.timeline.timechange({x: time});
+                    this.media.updateTime(time/1000);
+                });
+            } else {
+                this.timeline.addEventListener("timeline.click", (event) => {
+                    const time = this.timeline.event2ms(event);
+                    this.timeline.timechange({x: time});
+                });
+            }
+        }
+
+        if (this.table !== undefined) {
+            if (this.media !== undefined && this.media instanceof Video) {
+                this.table.addEventListener("table.rowSelected", (event) => {
+                    this.timeline.timechange({x: event.timeMs});
+                    this.media.updateTime(event.timeMs/1000);
+                });
+            } else {
+            }
+        }
+
+        if (this.media !== undefined) {
+            if (this.timeline !== undefined) {
+                this.media.addEventListener("media.timeupdate", (event) => {
+                    this.timeline.timechange({x: event.timeMs});
+                }
+            }
         }
     }
+
 
     /*------------------------------------------------------------------------*/
     /* Commands                                                               */

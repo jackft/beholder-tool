@@ -91,6 +91,7 @@
             stroke: red;
             stroke-width: 1px;
             pointer-events: none;
+            vector-effect: non-scaling-stroke;
         }
 
         .beholder-channel {
@@ -217,10 +218,11 @@
     <div id="beholder"></div>
 </div>
 <script>
+    let controller;
     window.onload = function() {
     const state = {
         media: {
-            src: "/example.mp4",
+            src: "/orangutan.mp4",
             type: "video"
         },
         timeline: {
@@ -261,7 +263,7 @@
         ruler: true
     };
     const config = {state: state, layout: layout, readonly: true};
-    const controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
+    controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
     controller.createTimelineAnnotation({
         id: 1,
         channelId: 2,
