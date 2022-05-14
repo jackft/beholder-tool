@@ -2,8 +2,16 @@ import { Formio } from 'formiojs';
 import { Layout, TimelineState, TimelineAnnotationState } from './state';
 import { inJestTest } from './utils';
 
+
+interface TableSelectEvent {
+    annotation: TimelineAnnotation;
+    timeMs: number;
+}
+
 interface TableEvents {
     "table.resize": Array<(event: ResizeObserverEntry) => void>,
+    "table.rowSelected": Array<(event: TableSelectEvent) => void>,
+
 }
 
 export class Table {
@@ -33,6 +41,7 @@ export class Table {
 
         this.events = {
             "table.resize": [],
+            "table.rowSelected": []
         };
 
         this.initTable();
@@ -345,8 +354,31 @@ class TimelineAnnotation {
                 this.closeDetails();
             }
         });
+        this.startElem.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.events["annotation.click"].forEach(f => f(this.state.id));
+            const tableSelectEvent = {
+                annotation: this,
+                timeMs: this.state.startTime
+            };
+            this.table.events["table.rowSelected"].forEach(f => f(tableSelectEvent));
+        });
+        this.endElem.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.events["annotation.click"].forEach(f => f(this.state.id));
+            const tableSelectEvent = {
+                annotation: this,
+                timeMs: this.state.endTime
+            };
+            this.table.events["table.rowSelected"].forEach(f => f(tableSelectEvent));
+        });
         this.rootElem.addEventListener("click", (event) => {
             this.events["annotation.click"].forEach(f => f(this.state.id));
+            const tableSelectEvent = {
+                annotation: this,
+                timeMs: this.state.startTime
+            };
+            this.table.events["table.rowSelected"].forEach(f => f(tableSelectEvent));
         });
     }
 

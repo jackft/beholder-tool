@@ -292,7 +292,7 @@ export class Timeline {
         timelineResizeObserver.observe(this.timelineSvg.node);
         // @ts-ignore
         this.timelineSvg.on("click", (event, cb, context) => {
-                this.events["timeline.click"].forEach(f => f(event));
+            this.events["timeline.click"].forEach(f => f(event));
         });
         //
         this.cursor.subscribeEvents();
@@ -313,6 +313,11 @@ export class Timeline {
         return this.timelineSvg.point(x, y);
     }
 
+    event2ms(event: MouseEvent) {
+        const [x, y] = normalizeEvent(event);
+        const p = this.point(x, y);
+        return this.xscale.call(p.x);
+    }
 
     //--------------------------------------------------------------------------
 
@@ -396,6 +401,11 @@ export class Timeline {
                 });
             });
         })
+    }
+
+    timechange(timechange: TimelineTimeChange) {
+        this.timelineindex.reindex(timechange);
+        this.timelineindex.draw();
     }
 }
 
