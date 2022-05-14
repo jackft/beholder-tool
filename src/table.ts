@@ -11,6 +11,7 @@ interface TableSelectEvent {
 interface TableEvents {
     "table.resize": Array<(event: ResizeObserverEntry) => void>,
     "table.rowSelected": Array<(event: TableSelectEvent) => void>,
+
 }
 
 export class Table {
