@@ -3,9 +3,11 @@
 <head>
     <script src="bundles/psych-coder.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
     <link rel='stylesheet' href='/dist/formio.full.css'>
     <script src='/dist/formio.full.js'></script>
+
     <style>
         #beholder {
             display: grid;
@@ -27,6 +29,35 @@
         .beholder-media {
             resize: horizontal;
             overflow: hidden;
+        }
+
+        .beholder-media-controls {
+            display: flex;
+            background: #c1c1c1;
+            padding: 2px;
+        }
+
+        .beholder-media-control {
+            margin: 0 5px;
+            display: flex;
+        }
+
+        .beholder-media-control > i {
+            height: min-content;
+            margin: auto;
+        }
+
+        .beholder-media-control > .slider {
+            margin: 0 auto;
+            height: auto;
+        }
+
+        .beholder-media-control > span {
+            display: inline-flex;
+            align-items: center;
+            font-size: 16px;
+            justify-content: space-between;
+            font-family: "Inconsolata; mono";
         }
 
         .beholder-annotation-table {

@@ -21,12 +21,18 @@ interface MediaEvents {
 export class Video implements Media {
     rootElem: HTMLElement
     element: HTMLVideoElement = document.createElement("video")
+    controls: HTMLDivElement = document.createElement("div")
+    playpause: HTMLButtonElement = document.createElement("button")
+    volume: HTMLInputElement = document.createElement("input")
+    currentTime: HTMLSpanElement = document.createElement("span")
+    totalTime: HTMLSpanElement = document.createElement("span")
     state: MediaState
     events: MediaEvents
     _time: number
     constructor(rootElem: HTMLElement, state: MediaState) {
         this.rootElem = rootElem;
         this.rootElem.appendChild(this.element);
+        this.rootElem.appendChild(this.controls);
         this.state = state;
 
         this.events = {
@@ -34,11 +40,11 @@ export class Video implements Media {
             "media.timeupdate": []
         };
 
-        this.subscribeToEvents();
 
         this.initVideo();
-        this.element.setAttribute("controls", "");
+        this.initControls();
         this._time = this.element.currentTime;
+        this.subscribeToEvents();
     }
 
     initVideo() {
@@ -47,6 +53,49 @@ export class Video implements Media {
         this.element.style.setProperty("width", "100%");
         this.element.style.setProperty("height", "auto");
         this.element.style.setProperty("display", "block");
+    }
+
+    initControls() {
+        this.controls.setAttribute("class", "beholder-media-controls");
+
+        const playContainer = document.createElement("div");
+        playContainer.setAttribute("class", "beholder-media-control")
+        playContainer.appendChild(this.playpause);
+        if (this.element.paused) {
+            this.playpause.innerHTML = "<i class='fa fa-play'></i>";
+        } else {
+            this.playpause.innerHTML = "<i class='fa fa-pause'></i>";
+        }
+        this.controls.appendChild(playContainer);
+
+        const volumeContainer = document.createElement("div");
+        const downIcon = document.createElement("i");
+        downIcon.setAttribute("class", "fa fa-volume-down");
+        volumeContainer.appendChild(downIcon);
+        volumeContainer.setAttribute("class", "beholder-media-control")
+        this.volume.setAttribute("type", "range");
+        this.volume.setAttribute("min", "0");
+        this.volume.setAttribute("max", "1");
+        this.volume.setAttribute("step", "any");
+        this.volume.setAttribute("class", "slider");
+        volumeContainer.appendChild(this.volume);
+        const upIcon = document.createElement("i");
+        upIcon.setAttribute("class", "fa fa-volume-up");
+        volumeContainer.appendChild(upIcon);
+        this.controls.appendChild(volumeContainer);
+
+        const timeContainer = document.createElement("div");
+        timeContainer.setAttribute("class", "beholder-media-control")
+        timeContainer.appendChild(this.currentTime);
+        const divider = document.createElement("span");
+        divider.innerText = "/";
+        timeContainer.appendChild(divider);
+        timeContainer.appendChild(this.totalTime);
+        this.element.addEventListener("loadedmetadata", () => {
+            this.totalTime.innerText = `${new Date(this.element.duration * 1000).toISOString().slice(11,23)}`;
+        });
+        this.currentTime.innerText = `${new Date(this.element.currentTime * 1000).toISOString().slice(11,23)}`;
+        this.controls.appendChild(timeContainer);
     }
 
     addEventListener(name, handler) {
@@ -72,6 +121,18 @@ export class Video implements Media {
         this.element.addEventListener("play", () => {this._onplay()});
         this.element.addEventListener("pause", () => {this._onpause()});
         this.element.addEventListener("seeked", () => {this._onseeked()});
+
+        this.volume.addEventListener("input", (event) => {
+            this.element.volume = +this.volume.value;
+        });
+
+        this.playpause.addEventListener("click", (event) => {
+            if (this.element.paused) {
+                this.element.play();
+            } else if (!this.element.paused) {
+                this.element.pause();
+            }
+        });
     }
 
     updateTime(timeMs: number) {
@@ -80,6 +141,7 @@ export class Video implements Media {
 
     timeUpdate() {
         const timeupdateevent = {timeMs: this._time * 1000};
+        this.currentTime.innerText = `${new Date(this._time * 1000).toISOString().slice(11,23)}`;
         this.events["media.timeupdate"].forEach(f => f(timeupdateevent));
     }
 
@@ -95,10 +157,12 @@ export class Video implements Media {
     }
 
     _onplay() {
+        this.playpause.innerHTML = "<i class='fa fa-pause'></i>";
         this._watchForFrameUpdate();
     }
 
     _onpause() {
+        this.playpause.innerHTML = "<i class='fa fa-play'></i>";
         this._time = this.element.currentTime;
         this.timeUpdate();
     }

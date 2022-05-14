@@ -7,11 +7,11 @@
 // resizeChannel => resize, idx, st-1 => st
 // unResizeChannel => resize, idx, st => st-1
 //
-// createAnnotatoin => create, idx, type, params
-// uncreateAnnotatoin => create, idx, type, params
+// createAnnotation => create, idx, type, params
+// uncreateAnnotation => create, idx, type, params
 //
-// createAnnotatoin => create, idx, type, params
-// uncreateAnnotatoin => create, idx, type, params
+// createAnnotation => create, idx, type, params
+// uncreateAnnotation => create, idx, type, params
 //
 
 
