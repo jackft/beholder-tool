@@ -273,7 +273,7 @@ export class Controller {
             if (this.timeline !== undefined) {
                 this.media.addEventListener("media.timeupdate", (event) => {
                     this.timeline.timechange({x: event.timeMs});
-                }
+                })
             }
         }
     }
