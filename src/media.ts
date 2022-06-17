@@ -136,6 +136,7 @@ export class Video implements Media {
     }
 
     updateTime(timeMs: number) {
+        this.currentTime.innerText = `${new Date(timeMs * 1000).toISOString().slice(11,23)}`;
         this.element.currentTime = timeMs;
     }
 

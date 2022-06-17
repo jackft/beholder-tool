@@ -228,7 +228,7 @@ export class Controller {
                     if (this.timeline !== undefined) {
                         this.timeline.rootElem.style.setProperty("width", `${entry.contentRect.width}px`)
                         this.timeline.resizeFullWidth();
-                        this.timeline.draw();
+                        this.timeline.draw({ruler: {draw: true, zoom: false, width: true}});
                     }
                 }
             );
@@ -247,10 +247,25 @@ export class Controller {
             });
             if (this.media !== undefined && this.media instanceof Video) {
                 this.timeline.addEventListener("timeline.click", (event) => {
-                    const time = this.timeline.event2ms(event);
-                    this.timeline.timechange({x: time});
-                    this.media.updateTime(time/1000);
+                    switch (event.which) {
+                        case 1: // left click
+                            const time = this.timeline.event2ms(event);
+                            this.media.updateTime(time/1000);
+                            this.timeline.timechange({x: time});
+                            break;
+                        case 2: // middle click
+                            break;
+                        case 3: // right click
+                            break;
+                        default:
+                            break;
+                    }
                 });
+                this.timeline.addEventListener("timeline.drag", (event) => {
+                    const time = this.timeline.event2ms(event);
+                    this.media.updateTime(time/1000);
+                    this.timeline.timechange({x: time});
+                })
             } else {
                 this.timeline.addEventListener("timeline.click", (event) => {
                     const time = this.timeline.event2ms(event);

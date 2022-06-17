@@ -162,6 +162,8 @@
             background-color: #2c2c32;
             resize: vertical;
             overflow: hidden;
+            color: #515151;
+            font-size: 12px;
         }
 
         .beholder-ruler-panel-child-child {
@@ -305,7 +307,7 @@
         table: true,
         ruler: true
     };
-    const config = {state: state, layout: layout, readonly: true};
+    const config = {state: state, layout: layout, readonly: false};
     controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
     controller.createTimelineAnnotation({
         id: 1,

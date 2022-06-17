@@ -31,6 +31,9 @@ module.exports = {
   externals: [{
       "formiojs/Formio": {
         commonjs: "formiojs/Formio"
+      },
+      "jquery/jQuery": {
+        commonjs: "jquery/jQuery"
       }
     }
   ],

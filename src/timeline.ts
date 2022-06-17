@@ -63,6 +63,9 @@ interface TimelineEvents {
     "timeline.click": Array<(event: MouseEvent) => void>
     "timeline.createChannel": Array<(event: ChannelState) => void>
     "timeline.createAnnotation": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>
+    "timeline.dragstart": Array<(event: MouseEvent) => void>
+    "timeline.drag": Array<(event: MouseEvent) => void>
+    "timeline.dragend": Array<(event: MouseEvent) => void>
 }
 
 /** Class representing a multichannel timeline. */
@@ -143,6 +146,9 @@ export class Timeline {
             "timeline.click": [],
             "timeline.createChannel": [],
             "timeline.createAnnotation": [],
+            "timeline.dragstart": [],
+            "timeline.drag": [],
+            "timeline.dragend": [],
         };
 
         this.subscribeToEvents();
@@ -294,6 +300,13 @@ export class Timeline {
         this.timelineSvg.on("click", (event, cb, context) => {
             this.events["timeline.click"].forEach(f => f(event));
         });
+        this.timelineSvg.on("mousedown", (event) => {
+            // @ts-ignore
+            this.dragstart(event)
+        });
+        this.timelineSvg.on("contextmenu", (event) => {
+            event.preventDefault();
+        });
         //
         this.cursor.subscribeEvents();
         this.timelineindex.subscribeEvents();
@@ -305,6 +318,25 @@ export class Timeline {
             if (this.ruler !== null)
                 this.ruler.draw(false);
         });
+    }
+
+    //--------------------------------------------------------------------------
+
+    dragstart(event) {
+        event.preventDefault();
+        this.events["timeline.dragstart"].forEach(f => f(event));
+        on(document, "mousemove.timeline", ((event: MouseEvent) => this.drag(event)) as any);
+        on(document, "mouseup.timeline", ((event: MouseEvent) => this.dragend(event)) as any);
+    }
+
+    drag(event) {
+        this.events["timeline.drag"].forEach(f => f(event));
+    }
+
+    dragend(event) {
+        this.events["timeline.dragend"].forEach(f => f(event));
+        off(document, "mousemove.timeline");
+        off(document, "mouseup.timeline");
     }
 
     //--------------------------------------------------------------------------
@@ -349,15 +381,17 @@ export class Timeline {
 
     }
 
-    draw() {
-        this.drawRuler();
+    draw(how={ruler: {draw: false, zoom: false, width: false}}) {
+        if (how.ruler.draw) {
+            this.drawRuler(how.ruler.zoom, how.ruler.width);
+        }
         this.drawChannels();
         this.drawAnnotations();
     }
 
-    drawRuler() {
+    drawRuler(zoom=false, width=false) {
         if (this.ruler !== null)
-            this.ruler.draw();
+            this.ruler.draw(zoom, width);
     }
 
     drawChannels() {
@@ -528,6 +562,7 @@ export class Ruler {
 
     panel: HTMLDivElement = document.createElement("div")
     panelBorder: HTMLDivElement = document.createElement("div")
+    mode: HTMLSpanElement = document.createElement("span")
     ruler: Rect = new Rect()
     g: G
     ticks: Array<Line>
@@ -589,9 +624,11 @@ export class Ruler {
     initPanel() {
         this.panel.setAttribute("class", "beholder-ruler-panel-child");
         this.panelBorder.setAttribute("class", "beholder-ruler-panel-child-child");
+        this.mode.innerText = "howdy";
 
         this.timeline.panel.append(this.panel);
         this.panel.appendChild(this.panelBorder);
+        this.panelBorder.appendChild(this.mode);
 
         if (inJestTest()) return this.panel;
         this.resizeObserver = new ResizeObserver(entries => {
@@ -609,7 +646,7 @@ export class Ruler {
 
     }
 
-    draw(zoom=false) {
+    draw(zoom=false, width=false) {
         // set the size of the ruler box
         this.ruler.attr("y", this.y);
         this.ruler.attr("width", this.timeline.timelineSvg.width());
@@ -659,7 +696,7 @@ export class Ruler {
             this.timeline.xscale.inv(this.timeline.state.endTime)
         );
         // be lazy and don't draw if you can help it!
-        if (!scaleChange && this.start <= viewStart && viewEnd <= end) {
+        if (!scaleChange && !width && this.start <= viewStart && viewEnd <= end) {
             if (zoom && this.labels.length) {
                 const labelWidth = this.labels[0].bbox().width;
                 for (let i=0; i < this.labels.length; ++i) {
@@ -1049,6 +1086,9 @@ class TimelineAnnotation {
             this._bind_dragging(true);
         }
         this.g.on("click", (event) => {
+            this.events["annotation.click"].forEach(f => f(this.state.id));
+        });
+        this.g.on("contextmenu", (event) => {
             this.events["annotation.click"].forEach(f => f(this.state.id));
         });
     }

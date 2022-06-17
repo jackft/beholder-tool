@@ -46,8 +46,10 @@
     "@babel/parser": "^7.14.2",
     "@svgdotjs/svg.js": "^3.1.2",
     "@svgdotjs/svg.panzoom.js": "^2.1.2",
+    "@types/jquery": "^3.5.14",
     "awesome-typescript-loader": "^5.2.1",
     "formiojs": "^4.14.6",
+    "jquery": "^3.6.0",
     "ts-loader": "^9.1.2",
     "typescript": "^3.9.9"
   }
