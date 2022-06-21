@@ -57,6 +57,11 @@ interface TimelineTimeChange {
     x: number;
 }
 
+enum TimelineMode {
+    Insert = "Insert",
+    Normal = "Normal"
+}
+
 interface TimelineEvents {
     "timeline.resize": Array<(event: ResizeObserverEntry) => void>,
     "timeline.timechange": Array<(event: TimelineTimeChange) => void>
@@ -76,6 +81,7 @@ export class Timeline {
     channels: Array<Channel>
     timelineAnnotations: Array<TimelineAnnotation> = []
     layout: Layout
+    mode: TimelineMode = TimelineMode.Normal
 
     maxChannelDepth: number
 
@@ -275,6 +281,16 @@ export class Timeline {
         timelineAnnotation.select();
     }
 
+    setNormalMode() {
+        this.mode = TimelineMode.Normal;
+        this.drawRuler(false, false, true);
+    }
+
+    setInsertMode() {
+        this.mode = TimelineMode.Insert;
+        this.drawRuler(false, false, true);
+    }
+
     //--------------------------------------------------------------------------
 
     addEventListener(name, handler) {
@@ -389,9 +405,9 @@ export class Timeline {
         this.drawAnnotations();
     }
 
-    drawRuler(zoom=false, width=false) {
+    drawRuler(zoom=false, width=false, mode=false) {
         if (this.ruler !== null)
-            this.ruler.draw(zoom, width);
+            this.ruler.draw(zoom, width, mode);
     }
 
     drawChannels() {
@@ -624,11 +640,17 @@ export class Ruler {
     initPanel() {
         this.panel.setAttribute("class", "beholder-ruler-panel-child");
         this.panelBorder.setAttribute("class", "beholder-ruler-panel-child-child");
-        this.mode.innerText = "howdy";
+        const modeContainer = document.createElement("div");
+        const modeTag = document.createElement("span");
+        modeTag.innerHTML = "mode: "
+        this.mode.setAttribute("class", "beholder-ruler-mode");
+        this.mode.innerText = `${this.timeline.mode}`;
 
         this.timeline.panel.append(this.panel);
         this.panel.appendChild(this.panelBorder);
-        this.panelBorder.appendChild(this.mode);
+        this.panelBorder.appendChild(modeContainer);
+        modeContainer.appendChild(modeTag);
+        modeContainer.appendChild(this.mode);
 
         if (inJestTest()) return this.panel;
         this.resizeObserver = new ResizeObserver(entries => {
@@ -646,7 +668,9 @@ export class Ruler {
 
     }
 
-    draw(zoom=false, width=false) {
+    draw(zoom=false, width=false, mode=false) {
+        if (mode)
+            this.mode.innerText = `${this.timeline.mode}`;
         // set the size of the ruler box
         this.ruler.attr("y", this.y);
         this.ruler.attr("width", this.timeline.timelineSvg.width());

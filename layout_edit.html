@@ -171,6 +171,10 @@
             height: 100%;
         }
 
+        .beholder-ruler-mode {
+            color: #919191;
+        }
+
         .beholder-ruler text {
             pointer-events: none;
         }
@@ -249,6 +253,9 @@
         }
         .beholder-interval:not(.readonly).selected > rect{
             cursor: grab;
+        }
+        .beholder-interval.selected.beholder-dragging > rect{
+            cursor: grabbing;
         }
 
         .beholder-annotation-table > .btn-group {
@@ -360,6 +367,16 @@
         }
         else if (event.key == "y") {
             controller.historyHandler.redo();
+        }
+    });
+    document.addEventListener("keyup", function(event) {
+        if (event.key == "Control") {
+            controller.setNormalMode();
+        }
+    });
+    document.addEventListener("keydown", function(event) {
+        if (event.key == "Control") {
+            controller.setInsertMode();
         }
     });
     }

@@ -247,7 +247,7 @@ export class Controller {
             });
             if (this.media !== undefined && this.media instanceof Video) {
                 this.timeline.addEventListener("timeline.click", (event) => {
-                    switch (event.which) {
+                    switch (event.buttons) {
                         case 1: // left click
                             const time = this.timeline.event2ms(event);
                             this.media.updateTime(time/1000);
@@ -262,9 +262,19 @@ export class Controller {
                     }
                 });
                 this.timeline.addEventListener("timeline.drag", (event) => {
-                    const time = this.timeline.event2ms(event);
-                    this.media.updateTime(time/1000);
-                    this.timeline.timechange({x: time});
+                    switch (event.buttons) {
+                        case 1: // left click
+                            const time = this.timeline.event2ms(event);
+                            this.media.updateTime(time/1000);
+                            this.timeline.timechange({x: time});
+                            break;
+                        case 2: // middle click
+                            break;
+                        case 3: // right click
+                            break;
+                        default:
+                            break;
+                    }
                 })
             } else {
                 this.timeline.addEventListener("timeline.click", (event) => {
@@ -396,5 +406,13 @@ export class Controller {
         if (this.table) {
             this.table.selectTimelineAnnotation(timelineAnnotationId);
         }
+    }
+
+    setNormalMode() {
+        this.timeline.setNormalMode();
+    }
+
+    setInsertMode() {
+        this.timeline.setInsertMode();
     }
 }
