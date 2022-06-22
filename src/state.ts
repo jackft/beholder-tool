@@ -79,6 +79,7 @@ export interface Layout {
 
 export interface Config {
     state: State,
-    layout: Layout
-    readonly?: boolean
+    layout: Layout,
+    readonly?: boolean,
+    schema?: Object,
 }

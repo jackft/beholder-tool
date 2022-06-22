@@ -77,6 +77,7 @@ interface TimelineEvents {
 export class Timeline {
     state: TimelineState
     readonly: boolean
+    schema: Object | null
     ruler: Ruler | null
     channels: Array<Channel>
     timelineAnnotations: Array<TimelineAnnotation> = []
@@ -116,11 +117,12 @@ export class Timeline {
     * @param {HTMLElement} element - The element in which to construct the timeline
     * @param {timelineOption} options - Optional parameters
     */
-    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false) {
+    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false, schema=null) {
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
         this.readonly = readonly;
+        this.schema = schema;
 
         // drawing options
         this.channelHeight = layout.channelHeight ?? 800;
@@ -369,6 +371,12 @@ export class Timeline {
         return this.xscale.call(p.x);
     }
 
+    event2channel(event: MouseEvent) {
+        const [x, y] = normalizeEvent(event);
+        const p = this.point(x, y);
+        return this.channels.find(c => c.y <= p.y && p.y <= c.y + c.height);
+    }
+
     //--------------------------------------------------------------------------
 
     resize(width: number, height: number) {
@@ -461,7 +469,7 @@ export class Timeline {
     }
 
     maxAnnotationId() {
-        return Math.max(...this.state.timelineAnnotations.map(a => a.id));
+        return Math.max(Math.max(...this.state.timelineAnnotations.map(a => a.id)), -1);
     }
 }
 
@@ -1038,6 +1046,15 @@ class TimelineAnnotation {
     }
 
     initInterval() {
+        if (this.timeline.schema !== null) {
+            let id = 0;
+            for (let modifier of this.timeline.schema["components"]) {
+                if (modifier["label"] != "label") {
+                    this.state.modifiers.push({id: id, label: modifier["label"], value: null});
+                    ++id;
+                }
+            }
+        }
         const g = this.timeline.timelineSvg.group().attr("class", "beholder-interval");
         if (this.timeline.readonly) {
             g.addClass("readonly");
@@ -1176,6 +1193,10 @@ class TimelineAnnotation {
                 const delta = this.timeline.xscale.call(x - this.dragStartX);
                 this.state.endTime = this.dragStartState.endTime + delta;
                 this.state.startTime = this.dragStartState.startTime + delta;
+                const channel = this.timeline.event2channel(event);
+                if (channel !== undefined && channel.state.id != this.state.channelId) {
+                    this.state.channelId = channel.state.id;
+                }
             }
             this._keepIntervalInBounds();
         }

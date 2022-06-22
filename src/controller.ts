@@ -121,6 +121,7 @@ export class Controller {
     state: State
     layout: Layout
     readonly: boolean = false
+    schema: Object | null = null
     historyHandler: HistoryHandler = new HistoryHandler()
 
     rootElem: HTMLElement
@@ -137,6 +138,9 @@ export class Controller {
         this.layout = config.layout;
         if (config.readonly !== undefined) {
             this.readonly = config.readonly;
+        }
+        if (config.schema !== undefined) {
+            this.schema = config.schema;
         }
         this.media = this.initMedia(this.state.media);
         this.mediaContainer = this.media.element.parentElement;
@@ -158,7 +162,7 @@ export class Controller {
 
     initTable(state: State) {
         const element = document.createElement("div");
-        const table = new Table(element, state.timeline, this.layout, this.readonly);
+        const table = new Table(element, state.timeline, this.layout, this.readonly, this.schema);
         this.rootElem.append(element);
         return table;
     }
@@ -174,7 +178,7 @@ export class Controller {
         const element = document.createElement("div");
         element.setAttribute("class", "beholder-timeline beholder-background");
         this.rootElem.append(element);
-        const timeline = new Timeline(element, timelineState, this.layout, this.readonly);
+        const timeline = new Timeline(element, timelineState, this.layout, this.readonly, this.schema);
         return timeline;
     }
 
@@ -255,22 +259,25 @@ export class Controller {
                     if (this.timeline.mode == TimelineMode.Insert) {
                         const time = this.timeline.event2ms(event);
                         const tId = this.timeline.maxAnnotationId() + 1;
-                        this.createTimelineAnnotation({
-                            id: tId,
-                            channelId: 1,
-                            type: "interval",
-                            label: null,
-                            startFrame: null,
-                            endFrame: null,
-                            startTime: time,
-                            endTime: time,
-                            modifiers: []
-                        });
-                        this.timeline.dragend(event);
-                        const timelineAnnotation = this.timeline.getTimelineAnnotation(tId);
-                        this.selectTimelineAnnotation(tId);
-                        timelineAnnotation.dragstart(event);
-                        timelineAnnotation.draggedShape = "r";
+                        const channel = this.timeline.event2channel(event);
+                        if (channel !== undefined) {
+                            this.createTimelineAnnotation({
+                                id: tId,
+                                channelId: channel.state.id,
+                                type: "interval",
+                                label: null,
+                                startFrame: null,
+                                endFrame: null,
+                                startTime: time,
+                                endTime: time,
+                                modifiers: []
+                            });
+                            this.timeline.dragend(event);
+                            const timelineAnnotation = this.timeline.getTimelineAnnotation(tId);
+                            this.selectTimelineAnnotation(tId);
+                            timelineAnnotation.dragstart(event);
+                            timelineAnnotation.draggedShape = "r";
+                        }
                     }
                 });
                 this.timeline.addEventListener("timeline.drag", (event) => {
@@ -287,7 +294,7 @@ export class Controller {
                         default:
                             break;
                     }
-                })
+                });
             } else {
                 this.timeline.addEventListener("timeline.click", (event) => {
                     const time = this.timeline.event2ms(event);

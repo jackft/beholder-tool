@@ -14,6 +14,8 @@ interface TableEvents {
 
 }
 
+function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
+
 export class Table {
     readonly: boolean = false
     rootElem: HTMLElement
@@ -24,6 +26,7 @@ export class Table {
     state: TimelineState
     events: TableEvents
     layout: Layout
+    schema: Object | null
 
     tabSelected: "timeline" | "media" | "entity"
     channelIdSelected: number | null = null
@@ -31,11 +34,12 @@ export class Table {
 
     timelineAnnotations: Array<TimelineAnnotation>
 
-    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false) {
+    constructor(rootElem: HTMLElement, state: TimelineState, layout: Layout, readonly=false, schema=null) {
         this.readonly = readonly;
         this.rootElem = rootElem;
         this.state = state;
         this.layout = layout;
+        this.schema = schema;
 
         this.timelineAnnotations = [];
 
@@ -313,27 +317,19 @@ class TimelineAnnotation {
     }
 
     formio() {
-        const components = [];
-        const mainLabel = {
-            type: "textfield",
-            key: "label",
-            label: "<strong>label:</strong>",
-            defaultValue: this.state.label,
-            disabled: false
+        const schema = deepCopy(this.table.schema);
+        for (let component of schema["components"]) {
+            if (this.state.label !== undefined && component["label"] === "label") {
+                component["defaultValue"] = this.state.label;
+            } else {
+                for (let modifier of this.state.modifiers) {
+                    if (modifier.value !== undefined && component["label"] == modifier.label) {
+                        component["defaultValue"] = modifier.value;
+                    }
+                }
+            }
         }
-        components.push(mainLabel);
-        for (const modifier of this.state.modifiers) {
-            const modifierLabel = {
-                type: "textfield",
-                key: modifier.label,
-                label: modifier.label,
-                defaultValue: modifier.value,
-                disabled: false
-            };
-            components.push(modifierLabel);
-        }
-        const payload = {components: components}
-        return payload
+        return schema;
     }
 
     formioReadOnly() {
@@ -372,10 +368,10 @@ class TimelineAnnotation {
     }
 
     _bindFormEvents(form) {
-        form.on("change", (event) => this.change(event));
+        form.on("change", (event) => this.change(form, event));
     }
 
-    change(event) {
+    change(form, event) {
         const key = event.changed.component.key;
         const value = event.changed.value;
         if (key === "label") {
@@ -385,6 +381,11 @@ class TimelineAnnotation {
             for (let modifier of this.state.modifiers) {
                 if (modifier.label === key) {
                     modifier.value = value;
+                    for (let component of form.components) {
+                        if (component.path === modifier.label) {
+                            component.component.defaultValue = value;
+                        }
+                    }
                 }
             }
         }

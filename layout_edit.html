@@ -27,6 +27,10 @@
             height: max-content;
         }
 
+        .beholder-timeline :not(.interval-resize) .insert {
+            cursor: cell;
+        }
+
         .beholder-media {
             resize: horizontal;
             overflow: hidden;
@@ -257,6 +261,9 @@
         .beholder-interval.selected.beholder-dragging > rect{
             cursor: grabbing;
         }
+        .beholder-interval.resize {
+            cursor: col-resize;
+        }
 
         .beholder-annotation-table > .btn-group {
             width: 100%;
@@ -282,19 +289,7 @@
                 {id: 1, parentId: null, name: "human gaze", allowedAnnotationIds: []},
                 {id: 2, parentId: null, name: "participant movement", allowedAnnotationIds: []},
             ],
-            timelineAnnotations: [
-                {
-                    id: 0,
-                    channelId: 2,
-                    type: "interval",
-                    label: "blah",
-                    startFrame: 0,
-                    endFrame: 1000,
-                    startTime: 0,
-                    endTime: 1000,
-                    modifiers: []
-                }
-            ],
+            timelineAnnotations: [],
             startTime: 0,
             endTime: 1000*60,
         },
@@ -314,52 +309,49 @@
         table: true,
         ruler: true
     };
-    const config = {state: state, layout: layout, readonly: false};
+    const schema =
+    {
+        "components": [
+            {
+                "label": "label",
+                "tableView": true,
+                "data": {
+                    "values": [
+                        {
+                            "label": "left",
+                            "value": "left"
+                        },
+                        {
+                            "label": "center",
+                            "value": "center"
+                        },
+                        {
+                            "label": "right",
+                            "value": "right"
+                        }
+                    ]
+                },
+                "key": "label",
+                "type": "select",
+                "input": true
+            },
+            {
+                "label": "open",
+                "tableView": false,
+                "key": "open",
+                "conditional": {
+                    "show": true,
+                    "when": "label",
+                    "eq": "center"
+                },
+                "type": "checkbox",
+                "input": true,
+                "defaultValue": false
+            }
+        ]
+    };
+    const config = {state: state, layout: layout, readonly: false, schema: schema};
     controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
-    controller.createTimelineAnnotation({
-        id: 1,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 500,
-        endFrame: 1500,
-        startTime: 500,
-        endTime: 1500,
-        modifiers: []
-    });
-    controller.createTimelineAnnotation({
-        id: 2,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 1510,
-        endFrame: 2000,
-        startTime: 1510,
-        endTime: 2000,
-        modifiers: [{label: "close", value: true}]
-    });
-    controller.createTimelineAnnotation({
-        id: 3,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 3000,
-        endFrame: 5000,
-        startTime: 6000,
-        endTime: 9000,
-        modifiers: [{label: "close", value: true}]
-    });
-    controller.createTimelineAnnotation({
-        id: 4,
-        channelId: 1,
-        type: "interval",
-        label: "blah",
-        startFrame: 0,
-        endFrame: 1000,
-        startTime: 4000,
-        endTime: 8000,
-        modifiers: []
-    });
     document.addEventListener("keypress", function(event) {
         console.log(controller.historyHandler);
         if (event.key == "z") {
