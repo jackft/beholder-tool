@@ -57,7 +57,7 @@ interface TimelineTimeChange {
     x: number;
 }
 
-enum TimelineMode {
+export enum TimelineMode {
     Insert = "Insert",
     Normal = "Normal"
 }
@@ -284,11 +284,13 @@ export class Timeline {
     setNormalMode() {
         this.mode = TimelineMode.Normal;
         this.drawRuler(false, false, true);
+        this.timelineSvg.removeClass("insert");
     }
 
     setInsertMode() {
         this.mode = TimelineMode.Insert;
         this.drawRuler(false, false, true);
+        this.timelineSvg.addClass("insert");
     }
 
     //--------------------------------------------------------------------------
@@ -456,6 +458,10 @@ export class Timeline {
     timechange(timechange: TimelineTimeChange) {
         this.timelineindex.reindex(timechange);
         this.timelineindex.draw();
+    }
+
+    maxAnnotationId() {
+        return Math.max(...this.state.timelineAnnotations.map(a => a.id));
     }
 }
 
@@ -1152,6 +1158,10 @@ class TimelineAnnotation {
         this.dragStartX = x;
         on(document, "mousemove.annotation", ((event: MouseEvent) => this.drag(event)) as any);
         on(document, "mouseup.annotation", ((event: MouseEvent) => this.dragend(event)) as any);
+        if (this.draggedShape === "r" || this.draggedShape === "l") {
+            this.timeline.timelineSvg.addClass("timeline-resize");
+            this.g.addClass("resize");
+        }
     }
 
     drag(event: MouseEvent) {
@@ -1190,6 +1200,8 @@ class TimelineAnnotation {
         this.dragStartState = null;
         off(document, "mousemove.annotation");
         off(document, "mouseup.annotation");
+        this.timeline.timelineSvg.removeClass("timeline-resize");
+        this.g.removeClass("resize");
     }
 
     delete() {

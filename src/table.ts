@@ -153,11 +153,13 @@ export class Table {
 
     deleteTimelineAnnotation(timelineAnnotationId) {
         const timelineAnnotationIdx = this.timelineAnnotations.map(a=>a.state.id).indexOf(timelineAnnotationId);
-        const timelineAnnotationStateIdx = this.state.timelineAnnotations.map(c=>c.id).indexOf(timelineAnnotationId);
-        if (timelineAnnotationIdx == -1 || timelineAnnotationStateIdx == -1) return null;
+        if (timelineAnnotationIdx == -1) return null;
         this.timelineAnnotations[timelineAnnotationIdx].delete();
         this.timelineAnnotations.splice(timelineAnnotationIdx, 1);
-        this.state.timelineAnnotations.splice(timelineAnnotationStateIdx, 1);
+        const timelineAnnotationStateIdx = this.state.timelineAnnotations.map(c=>c.id).indexOf(timelineAnnotationId);
+        if (timelineAnnotationStateIdx !== -1) {
+            this.state.timelineAnnotations.splice(timelineAnnotationStateIdx, 1);
+        };
         this.draw();
     }
 
@@ -223,6 +225,7 @@ export class Table {
 interface AnnotationEvents {
     "annotation.timechange": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>,
     "annotation.click": Array<(timelineAnnotationId: number) => void>
+    "annotation.datachange": Array<(state: TimelineAnnotationState) => void>
 }
 
 class TimelineAnnotation {
@@ -252,7 +255,8 @@ class TimelineAnnotation {
         }
         this.events = {
             "annotation.timechange": [],
-            "annotation.click": []
+            "annotation.click": [],
+            "annotation.datachange": []
         };
         this.subscribeEvents();
         this.draw();
@@ -308,6 +312,30 @@ class TimelineAnnotation {
         return this.table.state.channels[channelStateIdx].name
     }
 
+    formio() {
+        const components = [];
+        const mainLabel = {
+            type: "textfield",
+            key: "label",
+            label: "<strong>label:</strong>",
+            defaultValue: this.state.label,
+            disabled: false
+        }
+        components.push(mainLabel);
+        for (const modifier of this.state.modifiers) {
+            const modifierLabel = {
+                type: "textfield",
+                key: modifier.label,
+                label: modifier.label,
+                defaultValue: modifier.value,
+                disabled: false
+            };
+            components.push(modifierLabel);
+        }
+        const payload = {components: components}
+        return payload
+    }
+
     formioReadOnly() {
         const components = [];
         const mainLabel = {
@@ -329,7 +357,6 @@ class TimelineAnnotation {
             components.push(modifierLabel);
         }
         const payload = {components: components}
-        console.log(payload);
         return payload
     }
 
@@ -338,7 +365,30 @@ class TimelineAnnotation {
         this.detailsElem.appendChild(this.formElem);
         if (this.readonly) {
             Formio.createForm(this.formElem, this.formioReadOnly());
+        } else {
+            Formio.createForm(this.formElem, this.formio())
+                  .then(form => this._bindFormEvents(form));
         }
+    }
+
+    _bindFormEvents(form) {
+        form.on("change", (event) => this.change(event));
+    }
+
+    change(event) {
+        const key = event.changed.component.key;
+        const value = event.changed.value;
+        if (key === "label") {
+            this.state.label = value;
+            this.draw();
+        } else {
+            for (let modifier of this.state.modifiers) {
+                if (modifier.label === key) {
+                    modifier.value = value;
+                }
+            }
+        }
+        this.events["annotation.datachange"].forEach(f => f(this.state));
     }
 
     closeDetails() {

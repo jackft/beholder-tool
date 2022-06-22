@@ -17,7 +17,7 @@
 
 
 import { Media, Video } from './media';
-import { Timeline } from './timeline';
+import { Timeline, TimelineMode } from './timeline';
 import { Table } from './table';
 import { Config, Layout, State, ChannelState, TimelineState, MediaState, TimelineAnnotationState } from './state';
 
@@ -247,18 +247,30 @@ export class Controller {
             });
             if (this.media !== undefined && this.media instanceof Video) {
                 this.timeline.addEventListener("timeline.click", (event) => {
-                    switch (event.buttons) {
-                        case 1: // left click
-                            const time = this.timeline.event2ms(event);
-                            this.media.updateTime(time/1000);
-                            this.timeline.timechange({x: time});
-                            break;
-                        case 2: // middle click
-                            break;
-                        case 3: // right click
-                            break;
-                        default:
-                            break;
+                    const time = this.timeline.event2ms(event);
+                    this.media.updateTime(time/1000);
+                    this.timeline.timechange({x: time});
+                });
+                this.timeline.addEventListener("timeline.dragstart", (event) => {
+                    if (this.timeline.mode == TimelineMode.Insert) {
+                        const time = this.timeline.event2ms(event);
+                        const tId = this.timeline.maxAnnotationId() + 1;
+                        this.createTimelineAnnotation({
+                            id: tId,
+                            channelId: 1,
+                            type: "interval",
+                            label: null,
+                            startFrame: null,
+                            endFrame: null,
+                            startTime: time,
+                            endTime: time,
+                            modifiers: []
+                        });
+                        this.timeline.dragend(event);
+                        const timelineAnnotation = this.timeline.getTimelineAnnotation(tId);
+                        this.selectTimelineAnnotation(tId);
+                        timelineAnnotation.dragstart(event);
+                        timelineAnnotation.draggedShape = "r";
                     }
                 });
                 this.timeline.addEventListener("timeline.drag", (event) => {
@@ -348,7 +360,7 @@ export class Controller {
             if (this.timeline === undefined) return;
             this.timeline.deleteTimelineAnnotation(newState.id);
             if (this.table) {
-                this.table.deleteTimelineAnnotation(newState);
+                this.table.deleteTimelineAnnotation(newState.id);
             }
         };
         const redo = () => {
