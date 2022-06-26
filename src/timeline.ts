@@ -1,9 +1,10 @@
-import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off } from '@svgdotjs/svg.js';
+import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off, Image } from '@svgdotjs/svg.js';
 
 import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './state';
 import { LinearScale } from './scales';
-import { inJestTest } from './utils';
+import { inJestTest, CachedLoader } from './utils';
 import { ZoomHelper } from './zoom-helper';
+import { EndOfLineState } from 'typescript';
 
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
@@ -110,6 +111,7 @@ export class Timeline {
 
     events: TimelineEvents;
 
+    loader: CachedLoader = new CachedLoader()
 
     /**
     * Timeline.
@@ -221,7 +223,6 @@ export class Timeline {
             }
             return lhs.idAtDepth(rhsDepth) - rhs.idAtDepth(rhsDepth);
         });
-        console.log(this.channels.map(c => c.state));
         this.channels.forEach((channel, i) => channel.panel.style.setProperty("order", `${i}`));
     }
 
@@ -331,12 +332,24 @@ export class Timeline {
         this.cursor.subscribeEvents();
         this.timelineindex.subscribeEvents();
         this.zoomHelper.addEventListener("zoomHelper.zoom", () => {
-            if (this.ruler !== null)
+            if (this.ruler !== null) {
                 this.ruler.draw(true);
+                this.channels.forEach(channel => {
+                    if (channel.state.showWaveform) {
+                        channel.draw();
+                    }
+                });
+            }
         });
         this.zoomHelper.addEventListener("zoomHelper.pan", () => {
-            if (this.ruler !== null)
+            if (this.ruler !== null) {
                 this.ruler.draw(false);
+                this.channels.forEach(channel => {
+                    if (channel.state.showWaveform) {
+                        channel.draw();
+                    }
+                });
+            }
         });
     }
 
@@ -375,6 +388,10 @@ export class Timeline {
         const [x, y] = normalizeEvent(event);
         const p = this.point(x, y);
         return this.channels.find(c => c.y <= p.y && p.y <= c.y + c.height);
+    }
+
+    duration() {
+        return this.state.endTime - this.state.startTime;
     }
 
     //--------------------------------------------------------------------------
@@ -817,6 +834,8 @@ export class Channel {
     height: number
     y: number
     channel: Rect = new Rect()
+    waveform: Polyline | null = null
+    spectrogram: Image | null = null
     treePath: Polyline = new Polyline()
     panel: HTMLDivElement = document.createElement("div")
     panelBorder: HTMLDivElement = document.createElement("div")
@@ -844,6 +863,28 @@ export class Channel {
         //this.channelButtons.delete.addEventListener("click", () => {this.delete()});
 
         this.draw();
+
+        if (this.state.waveforms !== null && this.state.waveforms !== undefined) {
+            Object.entries(this.state.waveforms).forEach(x => {
+                const pixelPerSecond = +x[0];
+                const obj = x[1];
+                this.timeline.loader
+                    .load(obj["uri"])
+                    .then(data => {
+                        return this.waveformFormat(pixelPerSecond, data);
+                    }).then(points => {
+                        this.state.waveforms[pixelPerSecond].points = points;
+                        this.draw();
+                    });
+            });
+        }
+    }
+
+    async waveformFormat(pixelsPerSecond, data) {
+        const max = data.data.reduce((acc, val) => Math.max(acc, val));
+        //const inc = this.timeline.xscale.inv((1000/pixelsPerSecond)/2);
+        const inc = (+this.timeline.timelineSvg.width())/data.data.length
+        return data.data.map((y, i) => [inc * i, y/max]);
     }
 
     _treePathPoints(): PointArray {
@@ -926,8 +967,50 @@ export class Channel {
         const channel = this.timeline.timelineSvg
                             // @ts-ignore
                             .rect(this.timeline.timelineSvg.width(), this.height)
-                            .addClass("beholder-channel");
+                            .addClass("beholder-channel")
+                            .back();
+        if (this.state.showWaveform) {
+            this.waveform = this.timeline
+                .timelineSvg
+                .polyline()
+                .addClass("beholder-waveform");
+        }
+        if (this.state.spectrogram !== null && this.state.spectrogram !== undefined) {
+            this.spectrogram = this.timeline.timelineSvg.image();
+            this.spectrogram.attr("preserveAspectRatio", "none")
+        }
         return channel;
+    }
+
+    getBestWaveForm() {
+        const milliseconds = this.timeline.state.endTime - this.timeline.state.startTime;
+        const ratio = (this.timeline.timelineSvg.viewbox().width / this.timeline.width);
+        const width = this.timeline.width * ratio;
+        const target = 3000; // 5000 points on screen
+        let bestWaveform = null;
+        let bestMatch = null;
+        let bestScale = null;
+        let bestInc = null;
+        Object.entries(this.state.waveforms).forEach(([pointsPerSecond, data]) => {
+            if (data.points === null || data.points === undefined) return;
+            const inc = data.points[1][0] - data.points[0][0];
+            const points = width / inc;
+            const match = Math.abs(points - target);
+            if (bestWaveform === null || match < bestMatch) {
+                bestMatch = match;
+                bestWaveform = data.points;
+                bestScale = pointsPerSecond;
+                bestInc = inc;
+            }
+        });
+        if (bestWaveform === null || bestWaveform === undefined) {
+            return [null, null]
+        }
+        let viewStart = this.timeline.zoomHelper.translate[0];
+        let viewEnd = viewStart + this.timeline.width * this.timeline.zoomHelper.scale[0];
+        let startIndex = Math.max(Math.floor(viewStart / bestInc), 0);
+        let endIndex = Math.min(Math.ceil(viewEnd / bestInc), bestWaveform.length - 1);
+        return bestWaveform.slice(startIndex, endIndex);
     }
 
     draw() {
@@ -941,6 +1024,23 @@ export class Channel {
         this.treePath.plot(this._treePathPoints());
 
         let y = this.y + this.height;
+
+        if (this.waveform !== null) {
+            const bestWaveForm = this.getBestWaveForm();
+            if (bestWaveForm !== null) {
+                this.waveform
+                    // @ts-ignore
+                    .plot(bestWaveForm)
+                    .transform({translateY: this.y + this.height/2, scaleY: this.height/2});
+            }
+        }
+        if (this.spectrogram !== null ) {
+            this.spectrogram
+                .load(this.state.spectrogram)
+                .attr("width", this.timeline.timelineSvg.width())
+                .attr("height", this.height)
+                .transform({translateY: this.y});
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -995,7 +1095,6 @@ export class Channel {
     //--------------------------------------------------------------------------
 
     delete() {
-        console.log(`deleting channel ${this.state.id}`);
         this.panel.remove();
         this.treePath.remove();
         this.channel.remove();
@@ -1166,7 +1265,6 @@ class TimelineAnnotation {
 
     dragstart(event: MouseEvent) {
         this.timeline.zoomHelper.disable();
-        this.timeline.timelineSvg.addClass("beholder-interval-resize");
         this.g.addClass("beholder-dragging");
         this.dragStartState = deepCopy(this.state);
         event.preventDefault();
@@ -1177,7 +1275,6 @@ class TimelineAnnotation {
         on(document, "mouseup.annotation", ((event: MouseEvent) => this.dragend(event)) as any);
         if (this.draggedShape === "r" || this.draggedShape === "l") {
             this.timeline.timelineSvg.addClass("timeline-resize");
-            this.g.addClass("resize");
         }
     }
 
@@ -1209,7 +1306,6 @@ class TimelineAnnotation {
 
     dragend(event: MouseEvent) {
         this.timeline.zoomHelper.enable();
-        this.timeline.timelineSvg.removeClass("beholder-interval-resize");
         this.g.removeClass("beholder-dragging");
         const [xMouse, yMouse] = normalizeEvent(event);
         const {x, y} = this.timeline.point(xMouse, yMouse);

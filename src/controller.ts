@@ -234,6 +234,11 @@ export class Controller {
                         this.timeline.resizeFullWidth();
                         this.timeline.draw({ruler: {draw: true, zoom: false, width: true}});
                     }
+                    if (this.table !== undefined) {
+                        this.table.resizeHeight(
+                            entry.contentRect.height + this.timeline.rootElem.getBoundingClientRect().height
+                        );
+                    }
                 }
             );
         }
@@ -275,8 +280,8 @@ export class Controller {
                             this.timeline.dragend(event);
                             const timelineAnnotation = this.timeline.getTimelineAnnotation(tId);
                             this.selectTimelineAnnotation(tId);
-                            timelineAnnotation.dragstart(event);
                             timelineAnnotation.draggedShape = "r";
+                            timelineAnnotation.dragstart(event);
                         }
                     }
                 });
@@ -360,7 +365,7 @@ export class Controller {
     deleteChannel(state: ChannelState) {
     }
 
-    createTimelineAnnotation(state: TimelineAnnotationState) {
+    createTimelineAnnotation(state: TimelineAnnotationState, tracking=true) {
         if (this.timeline === undefined) return;
         const newState = deepCopy(state);
         const undo = () => {

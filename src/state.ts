@@ -15,7 +15,11 @@ export interface ChannelState {
     id: number,
     parentId: number | null,
     name: string,
-    allowedAnnotationIds: Array<number> | null
+    allowedAnnotationIds: Array<number> | null,
+    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[][] | null}},
+    showWaveform?: boolean
+    spectrogram?: string
+    showSpectrogram?: boolean
 }
 
 export interface TimelineState {

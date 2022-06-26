@@ -27,8 +27,8 @@
             height: max-content;
         }
 
-        .beholder-timeline :not(.interval-resize) .insert {
-            cursor: cell;
+        svg:not(.timeline-resize).insert {
+            cursor: cell !important;
         }
 
         .beholder-media {
@@ -72,8 +72,11 @@
             max-height: 100%;
         }
 
-        .beholder-annotation-table-rows {
+        .beholder-annotation-table-rows-container {
             overflow-y: scroll;
+        }
+
+        .beholder-annotation-table-rows {
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -224,13 +227,20 @@
             line-height: 0;
         }
 
-        .beholder-interval {
+        .beholder-waveform {
+            stroke: #920e81;
+            stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+
+        .beholder-interval:not(.selected):not(.resize) {
             cursor: pointer;
         }
 
         .beholder-interval > rect{
             fill: #0e2692;
-            opacity: 0.8;
+            opacity: 0.3;
             stroke: #a1a1a1;
             stroke-width: 1px;
             stroke-opacity: 0.2;
@@ -254,11 +264,12 @@
         }
         .beholder-interval.selected > rect{
             fill: #587C0C;
+            opacity: 0.5;
         }
-        .beholder-interval:not(.readonly).selected > rect{
+        .beholder-interval:not(.readonly).selected:not(.resize) > rect{
             cursor: grab;
         }
-        .beholder-interval.selected.beholder-dragging > rect{
+        .beholder-interval.selected.beholder-dragging:not(.resize) > rect{
             cursor: grabbing;
         }
         .beholder-interval.resize {
@@ -286,12 +297,28 @@
         },
         timeline: {
             channels: [
-                {id: 1, parentId: null, name: "human gaze", allowedAnnotationIds: []},
-                {id: 2, parentId: null, name: "participant movement", allowedAnnotationIds: []},
+                {
+                    id: 0,
+                    parentId: null,
+                    name: "audio",
+                    allowedAnnotationIds: [],
+                    waveforms: {1: {uri: "./long_clip_short.json", data: null}, 20: {uri: "./long_clip.json", data: null}, 200: {uri: "./long_clip_zoom.json", data: null}, 2000: {uri: "./long_clip_zoom2.json", data: null}},
+                    showWaveform: true
+                },
+                {
+                    id: 1,
+                    parentId: null,
+                    name: "spectrogram",
+                    allowedAnnotationIds: [],
+                    spectrogram: "./spectrogram.png",
+                    showSpectrogram: true
+                },
+                {id: 2, parentId: null, name: "human gaze", allowedAnnotationIds: []},
+                {id: 3, parentId: null, name: "participant movement", allowedAnnotationIds: []},
             ],
             timelineAnnotations: [],
             startTime: 0,
-            endTime: 1000*60,
+            endTime: 910840
         },
     };
     const layout = {

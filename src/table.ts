@@ -19,6 +19,7 @@ function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 export class Table {
     readonly: boolean = false
     rootElem: HTMLElement
+    rowsContainer: HTMLElement
     rowsElem: HTMLElement
     channelFilterGroupElem: HTMLElement
     channelFilterElem: HTMLSelectElement
@@ -51,7 +52,6 @@ export class Table {
         this.initTable();
         this.subscribeToEvents();
 
-        this.update();
     }
 
     addEventListener(name, handler) {
@@ -88,26 +88,26 @@ export class Table {
             this.rootElem.setAttribute("class", "beholder-annotation-table");
 
             // buttons
-            const buttonGroup = document.createElement("div");
-            buttonGroup.setAttribute("class", "btn-group");
-            buttonGroup.setAttribute("role", "group");
-            buttonGroup.setAttribute("aria-label", "Basic example");
-            this.rootElem.appendChild(buttonGroup);
+            // const buttonGroup = document.createElement("div");
+            // buttonGroup.setAttribute("class", "btn-group");
+            // buttonGroup.setAttribute("role", "group");
+            // buttonGroup.setAttribute("aria-label", "Basic example");
+            // this.rootElem.appendChild(buttonGroup);
 
-            const timelineButton = document.createElement("button");
-            timelineButton.setAttribute("class", "btn btn-secondary");
-            timelineButton.innerText = "Timeline";
-            buttonGroup.appendChild(timelineButton);
+            // const timelineButton = document.createElement("button");
+            // timelineButton.setAttribute("class", "btn btn-secondary");
+            // timelineButton.innerText = "Timeline";
+            // buttonGroup.appendChild(timelineButton);
 
-            const video = document.createElement("button");
-            video.setAttribute("class", "btn btn-secondary");
-            video.innerText = "Media";
-            buttonGroup.appendChild(video);
+            // const video = document.createElement("button");
+            // video.setAttribute("class", "btn btn-secondary");
+            // video.innerText = "Media";
+            // buttonGroup.appendChild(video);
 
-            const entities = document.createElement("button");
-            entities.setAttribute("class", "btn btn-secondary");
-            entities.innerText = "Entity";
-            buttonGroup.appendChild(entities);
+            // const entities = document.createElement("button");
+            // entities.setAttribute("class", "btn btn-secondary");
+            // entities.innerText = "Entity";
+            // buttonGroup.appendChild(entities);
 
             // channel filter
             this.channelFilterGroupElem = document.createElement("div");
@@ -138,14 +138,13 @@ export class Table {
             this.rootElem.appendChild(this.channelFilterGroupElem);
 
             // rows
+            this.rowsContainer = document.createElement("div");
+            this.rowsContainer.setAttribute("class", "beholder-annotation-table-rows-container");
             this.rowsElem = document.createElement("div");
             this.rowsElem.setAttribute("class", "beholder-annotation-table-rows");
-            this.rootElem.appendChild(this.rowsElem);
+            this.rowsContainer.append(this.rowsElem);
+            this.rootElem.appendChild(this.rowsContainer);
         }
-    }
-
-    update() {
-        console.log(this.state);
     }
 
     createTimelineAnnotation(state: TimelineAnnotationState) {
@@ -202,6 +201,17 @@ export class Table {
     draw() {
         this.hideAnnotations();
         this.sortAnnotations();
+    }
+
+    resizeHeight(height) {
+
+        this.rootElem.style.setProperty("max-height", `${height}px`);
+        this.rowsContainer.style.setProperty("max-height", `${height}px`);
+        console.log(
+            height,
+            this.rowsContainer.getBoundingClientRect().height,
+            this.rootElem.getBoundingClientRect().height
+        );
     }
 
     hideAnnotations() {
