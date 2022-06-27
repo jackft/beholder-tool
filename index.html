@@ -1,22 +1,136 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="bundles/psych-coder.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="./bundles/psych-coder.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <link rel='stylesheet' href='./dist/formio.full.css'>
+    <script src='./dist/formio.full.js'></script>
+
     <style>
+        #beholder {
+            display: grid;
+            background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .beholder-interval-resize {
+            cursor: col-resize;
+        }
+
+        .beholder-timeline {
+            display: flex;
+            width: max-content;
+            height: max-content;
+        }
+
+        svg:not(.timeline-resize).insert {
+            cursor: cell !important;
+        }
+
+        .beholder-media {
+            resize: horizontal;
+            overflow: hidden;
+        }
+
+        .beholder-media-controls {
+            display: flex;
+            background: #c1c1c1;
+            padding: 2px;
+        }
+
+        .beholder-media-control {
+            margin: 0 5px;
+            display: flex;
+        }
+
+        .beholder-media-control > i {
+            height: min-content;
+            margin: auto;
+        }
+
+        .beholder-media-control > .slider {
+            margin: 0 auto;
+            height: auto;
+        }
+
+        .beholder-media-control > span {
+            display: inline-flex;
+            align-items: center;
+            font-size: 16px;
+            justify-content: space-between;
+            font-family: "Inconsolata; mono";
+        }
+
+        .beholder-annotation-table {
+            background: #f1f1f1;
+            resize: horizontal;
+            overflow: hidden;
+            max-height: 100%;
+        }
+
+        .beholder-annotation-table-rows-container {
+            overflow-y: scroll;
+        }
+
+        .beholder-annotation-table-rows {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .beholder-annotation-table-row {
+            border: 1px black solid;
+            margin: 5px;
+            padding: 5px;
+        }
+
+        .beholder-annotation-table-row.selected {
+            background: #d1f1d1;
+        }
+
+        .beholder-annotation-table-row:not(.selected):hover {
+            background: #d1d1d1;
+            cursor: pointer;
+        }
+
+        .beholder-annotation-table-row-time-elem {
+            display: flex;
+            font-size: 12px;
+            justify-content: space-between;
+            font-family: "Inconsolata; mono";
+        }
+
+        .beholder-annotation-table-row-channel-elem {
+            font-size: 12px;
+            color: "#a1a1a1";
+            font-family: "Inconsolata; mono";
+        }
+
+        .beholder-annotation-table-row-time-elem > div {
+            display: inline-block;
+        }
+
         .beholder-background {
             fill: #2c2c32;
+            background-color: #2c2c32;
         }
 
         .beholder-cursor {
             stroke: white;
             stroke-width: 1px;
             pointer-events: none;
+            vector-effect: non-scaling-stroke;
         }
 
         .beholder-cursor-index {
             stroke: red;
             stroke-width: 1px;
             pointer-events: none;
+            vector-effect: non-scaling-stroke;
         }
 
         .beholder-channel {
@@ -25,13 +139,65 @@
             stroke-width: 1px;
         }
 
+        .beholder-channel {
+            fill: #2c2c32;
+            stroke: #515151;
+            stroke-width: 1px;
+        }
+
+        .beholder-ruler {
+            fill: #2c2c32;
+            stroke: #515151;
+            stroke-width: 1px;
+        }
+
+        .beholder-ruler-ticks {
+            stroke: #515151;
+            stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .beholder-ruler-label {
+            fill: #515151;
+            font-family: "Inconsolata; mono";
+            font-size: 10px;
+            text-anchor: initial;
+            dominant-baseline: hanging;
+        }
+
+        .beholder-ruler-panel-child {
+            background-color: #2c2c32;
+            resize: vertical;
+            overflow: hidden;
+            color: #515151;
+            font-size: 12px;
+        }
+
+        .beholder-ruler-panel-child-child {
+            width: 100%;
+            height: 100%;
+        }
+
+        .beholder-ruler-mode {
+            color: #919191;
+        }
+
+        .beholder-ruler text {
+            pointer-events: none;
+        }
+
+
         .beholder-channel-panel {
-            width: 50px;
+            width: 100px;
             background-color: aqua;
+            display: flex;
+            flex-direction: column;
         }
 
         .beholder-channel-panel-child {
             background-color: #2c2c32;
+            color: #515151;
+            font-size: 12px;
             resize: vertical;
             overflow: hidden;
         }
@@ -39,6 +205,10 @@
         .beholder-channel-panel-child-child {
             width: 100%;
             height: 100%;
+
+            box-sizing: border-box;
+            border-top: 1px solid #515151;
+            border-right: 1px dashed #515151;
         }
 
         .beholder-channel-tree {
@@ -54,31 +224,181 @@
             margin: 0;
             font-family: monospace;
             font-size: 8px;
+            line-height: 0;
         }
 
-        #hi {
-            display: flex;
+        .beholder-waveform {
+            stroke: #920e81;
+            stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+
+        .beholder-interval:not(.selected):not(.resize) {
+            cursor: pointer;
+        }
+
+        .beholder-interval > rect{
+            fill: #0e2692;
+            opacity: 0.3;
+            stroke: #a1a1a1;
+            stroke-width: 1px;
+            stroke-opacity: 0.2;
+            vector-effect: non-scaling-stroke;
+        }
+        .beholder-interval > line{
+            stroke: #a1a1a1;
+            stroke-width: 1px;
+            stroke-opacity: 0.2;
+            vector-effect: non-scaling-stroke;
+        }
+        .beholder-interval:not(.readonly):hover:not(.beholder-dragging).selected > line {
+            stroke-width: 5px;
+            stroke-opacity: 1.0;
+        }
+        .beholder-interval:not(.readonly):hover.selected > line:hover {
+            cursor: col-resize;
+        }
+        .beholder-interval:not(.readonly):hover.selected > rect {
+            stroke-opacity: 0.8;
+        }
+        .beholder-interval.selected > rect{
+            fill: #587C0C;
+            opacity: 0.5;
+        }
+        .beholder-interval:not(.readonly).selected:not(.resize) > rect{
+            cursor: grab;
+        }
+        .beholder-interval.selected.beholder-dragging:not(.resize) > rect{
+            cursor: grabbing;
+        }
+        .beholder-interval.resize {
+            cursor: col-resize;
+        }
+
+        .beholder-annotation-table > .btn-group {
+            width: 100%;
         }
 
     </style>
 </head>
 <body>
 
-<div id="hi"></div>
-<button id="add-channel">+ channel</button>
-<button id="rem-channel">- channel</button>
+<div style="margin: auto; padding: 20px; width: max-content;">
+    <div id="beholder"></div>
+</div>
 <script>
-    const coder = new psychCoder.Timeline(document.querySelector("#hi"), {});
-    coder.newChannel();
-    coder.newChannel();
-    document.querySelector("#add-channel").addEventListener("click", function() {
-        coder.resize(coder.svg.width(), coder.svg.height() + 50);
-        coder.channels.push(new psychCoder.Channel(coder, 50));
-        coder.draw();
-    });
-    coder.channels[0].newChild();
-    coder.addEventListener("timeline.click", (event) => console.log(event));
-</script>
+    let controller;
+    window.onload = function() {
+    const state = {
+        media: {
+            src: "./static/bunny.mp4",
+            type: "video"
+        },
+        timeline: {
+            channels: [
+                {
+                    id: 0,
+                    parentId: null,
+                    name: "audio",
+                    allowedAnnotationIds: [],
+                    waveforms: {1: {uri: "./static/waveform_1.json", data: null}, 20: {uri: "./static/waveform_20.json", data: null}, 200: {uri: "./static/waveform_200.json", data: null}, 2000: {uri: "./static/waveform_2000.json", data: null}},
+                    showWaveform: true
+                },
+                {
+                    id: 1,
+                    parentId: null,
+                    name: "spectrogram",
+                    allowedAnnotationIds: [],
+                    spectrogram: "./static/spectrogram.png",
+                    showSpectrogram: true
+                },
+                {id: 2, parentId: null, name: "human gaze", allowedAnnotationIds: []},
+                {id: 3, parentId: null, name: "participant movement", allowedAnnotationIds: []},
+            ],
+            timelineAnnotations: [],
+            startTime: 0,
+            endTime: 125850
+        },
+    };
+    const layout = {
+        cssGridRows: "repeat(3,auto)",
+        cssGridCols: "repeat(3,fit-content())",
+        timelineLayout: [2,1,3,3],
+        tableLayout: [1, 3, 4, 4],
+        mediaLayout: [1,1,2,3],
+        channelHeight: 80,
+        treeWidth: 50,
 
+        maxMediaInitWidth: 1000,
+        maxTimelineInitWidth: 1000,
+
+        table: true,
+        ruler: true
+    };
+    const schema =
+    {
+        "components": [
+            {
+                "label": "label",
+                "tableView": true,
+                "data": {
+                    "values": [
+                        {
+                            "label": "left",
+                            "value": "left"
+                        },
+                        {
+                            "label": "center",
+                            "value": "center"
+                        },
+                        {
+                            "label": "right",
+                            "value": "right"
+                        }
+                    ]
+                },
+                "key": "label",
+                "type": "select",
+                "input": true
+            },
+            {
+                "label": "open",
+                "tableView": false,
+                "key": "open",
+                "conditional": {
+                    "show": true,
+                    "when": "label",
+                    "eq": "center"
+                },
+                "type": "checkbox",
+                "input": true,
+                "defaultValue": false
+            }
+        ]
+    };
+    const config = {state: state, layout: layout, readonly: false, schema: schema};
+    controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
+    document.addEventListener("keypress", function(event) {
+        console.log(controller.historyHandler);
+        if (event.key == "z") {
+            controller.historyHandler.undo();
+        }
+        else if (event.key == "y") {
+            controller.historyHandler.redo();
+        }
+    });
+    document.addEventListener("keyup", function(event) {
+        if (event.key == "Control") {
+            controller.setNormalMode();
+        }
+    });
+    document.addEventListener("keydown", function(event) {
+        if (event.key == "Control") {
+            controller.setInsertMode();
+        }
+    });
+    }
+</script>
 </body>
 </html>
