@@ -16,7 +16,7 @@ export interface ChannelState {
     parentId: number | null,
     name: string,
     allowedAnnotationIds: Array<number> | null,
-    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[][] | null}},
+    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[] | null}},
     showWaveform?: boolean
     spectrogram?: string
     showSpectrogram?: boolean

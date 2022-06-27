@@ -828,6 +828,9 @@ export class Channel {
     // resize observer things
     resizeObserver?: ResizeObserver
     resize: boolean = true
+
+    _lastResize: number = 0;
+    _resizing: boolean = false;
     // drawn things
     minimized: boolean =  false
     oldHeight: number | null = null
@@ -871,6 +874,7 @@ export class Channel {
                 this.timeline.loader
                     .load(obj["uri"])
                     .then(data => {
+                        this.state.waveforms[pixelPerSecond].data = data.data;
                         return this.waveformFormat(pixelPerSecond, data);
                     }).then(points => {
                         this.state.waveforms[pixelPerSecond].points = points;
@@ -878,6 +882,28 @@ export class Channel {
                     });
             });
         }
+    }
+
+    resizeWaveform() {
+        if (this.state.waveforms === undefined) return;
+        const now = Date.now();
+        if (now - this._lastResize < 300) {
+            if (!this._resizing) {
+                this._resizing = true;
+                setTimeout(() => this.resizeWaveform(), 300 - (now - this._lastResize));
+            }
+            return;
+        }
+        this._lastResize = now;
+        Object.entries(this.state.waveforms).forEach(x => {
+            const pixelsPerSecond = +x[0];
+            const obj = x[1];
+            this.waveformFormat(pixelsPerSecond, obj).then(points => {
+                this.state.waveforms[pixelsPerSecond].points = points;
+                this.draw();
+            });
+        });
+        this._resizing = false;
     }
 
     async waveformFormat(pixelsPerSecond, data) {

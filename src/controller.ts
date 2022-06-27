@@ -232,6 +232,7 @@ export class Controller {
                     if (this.timeline !== undefined) {
                         this.timeline.rootElem.style.setProperty("width", `${entry.contentRect.width}px`)
                         this.timeline.resizeFullWidth();
+                        this.timeline.channels.forEach(c => c.resizeWaveform());
                         this.timeline.draw({ruler: {draw: true, zoom: false, width: true}});
                     }
                     if (this.table !== undefined) {
