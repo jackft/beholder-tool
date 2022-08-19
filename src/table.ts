@@ -198,6 +198,11 @@ export class Table {
         timelineAnnotation.select();
     }
 
+    deselectTimelineAnnotation(timelineAnnotationId) {
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.deselect();
+    }
+
     draw() {
         this.hideAnnotations();
         this.sortAnnotations();

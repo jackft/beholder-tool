@@ -69,6 +69,7 @@ interface TimelineEvents {
     "timeline.click": Array<(event: MouseEvent) => void>
     "timeline.createChannel": Array<(event: ChannelState) => void>
     "timeline.createAnnotation": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>
+    "timeline.deleteChannel": Array<(event: ChannelState) => void>
     "timeline.dragstart": Array<(event: MouseEvent) => void>
     "timeline.drag": Array<(event: MouseEvent) => void>
     "timeline.dragend": Array<(event: MouseEvent) => void>
@@ -156,6 +157,7 @@ export class Timeline {
             "timeline.click": [],
             "timeline.createChannel": [],
             "timeline.createAnnotation": [],
+            "timeline.deleteChannel": [],
             "timeline.dragstart": [],
             "timeline.drag": [],
             "timeline.dragend": [],
@@ -282,6 +284,11 @@ export class Timeline {
         this.timelineAnnotations.forEach(x => x.deselect());
         const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
         timelineAnnotation.select();
+    }
+
+    deselectTimelineAnnotation(timelineAnnotationId) {
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.deselect();
     }
 
     setNormalMode() {
@@ -884,6 +891,24 @@ export class Channel {
         }
     }
 
+    children() {
+        return this.timeline.channels.filter(channel => channel.parent === null ? false : channel.parent.state.id === this.state.id);
+    }
+
+    recursiveChildren(includeSelf = false) {
+        if (this.children().length === 0) {
+            return [this];
+        }
+        if (includeSelf) {
+            return [this].concat(
+                ...this.children().map(child => child.recursiveChildren())
+            );
+        }
+        return Array.prototype.concat(
+            ...this.children().map(child => child.recursiveChildren())
+        );
+    }
+
     resizeWaveform() {
         if (this.state.waveforms === undefined) return;
         const now = Date.now();
@@ -1103,6 +1128,14 @@ export class Channel {
                 });
             });
         }
+        if (!this.timeline.readonly) {
+            this.channelButtons.delete.addEventListener("click", (event) => {
+                this.timeline.events["timeline.deleteChannel"].forEach(f => {
+                    const newState = deepCopy(this.state);
+                    f(newState);
+                });
+            });
+        }
         this.channelButtons.minimize.addEventListener("click", (event) => {
             if (this.minimized && this.oldHeight !== null) {
                 this.height = this.oldHeight;
@@ -1141,6 +1174,7 @@ class TimelineAnnotation {
     state: TimelineAnnotationState
     timeline: Timeline
     selected: boolean = false
+    tracking: boolean = false
 
     g: G = new G()
     rect: Rect = new Rect()
@@ -1348,6 +1382,7 @@ class TimelineAnnotation {
     }
 
     delete() {
+        if (this.selected) console.warn("deleting selected selected annotation", this);
         this.g.remove();
     }
 
