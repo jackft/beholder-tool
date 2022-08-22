@@ -209,14 +209,8 @@ export class Table {
     }
 
     resizeHeight(height) {
-
         this.rootElem.style.setProperty("max-height", `${height}px`);
-        this.rowsContainer.style.setProperty("max-height", `${height}px`);
-        console.log(
-            height,
-            this.rowsContainer.getBoundingClientRect().height,
-            this.rootElem.getBoundingClientRect().height
-        );
+        this.rowsContainer.style.setProperty("max-height", `${height+100}px`);
     }
 
     hideAnnotations() {

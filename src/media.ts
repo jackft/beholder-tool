@@ -7,6 +7,10 @@ export interface Media {
     state: MediaState
     addEventListener(name, handler): void
     updateTime(timeMs: number): void
+    height(): number
+    playpause(): void
+    stepForward(n: number): void
+    stepBackward(n: number): void
 }
 
 interface TimeUpdateEvent {
@@ -22,12 +26,15 @@ export class Video implements Media {
     rootElem: HTMLElement
     element: HTMLVideoElement = document.createElement("video")
     controls: HTMLDivElement = document.createElement("div")
-    playpause: HTMLButtonElement = document.createElement("button")
+    playpauseElem: HTMLButtonElement = document.createElement("button")
     volume: HTMLInputElement = document.createElement("input")
     currentTime: HTMLSpanElement = document.createElement("span")
     totalTime: HTMLSpanElement = document.createElement("span")
     state: MediaState
     events: MediaEvents
+    framerate: number | null
+    frameDuration: number | null
+    frameOffset: number | null
     _time: number
     constructor(rootElem: HTMLElement, state: MediaState) {
         this.rootElem = rootElem;
@@ -40,6 +47,9 @@ export class Video implements Media {
             "media.timeupdate": []
         };
 
+        this.framerate = state.framerate;
+        this.frameDuration = 1/this.framerate;
+        this.frameOffset = 0.3 * this.frameDuration; // magic number. don't know why this works.
 
         this.initVideo();
         this.initControls();
@@ -60,11 +70,11 @@ export class Video implements Media {
 
         const playContainer = document.createElement("div");
         playContainer.setAttribute("class", "beholder-media-control")
-        playContainer.appendChild(this.playpause);
+        playContainer.appendChild(this.playpauseElem);
         if (this.element.paused) {
-            this.playpause.innerHTML = "<i class='fa fa-play'></i>";
+            this.playpauseElem.innerHTML = "<i class='fa fa-play'></i>";
         } else {
-            this.playpause.innerHTML = "<i class='fa fa-pause'></i>";
+            this.playpauseElem.innerHTML = "<i class='fa fa-pause'></i>";
         }
         this.controls.appendChild(playContainer);
 
@@ -126,7 +136,7 @@ export class Video implements Media {
             this.element.volume = +this.volume.value;
         });
 
-        this.playpause.addEventListener("click", (event) => {
+        this.playpauseElem.addEventListener("click", (event) => {
             if (this.element.paused) {
                 this.element.play();
             } else if (!this.element.paused) {
@@ -146,6 +156,10 @@ export class Video implements Media {
         this.events["media.timeupdate"].forEach(f => f(timeupdateevent));
     }
 
+    height() {
+        return this.rootElem.getBoundingClientRect().height;
+    }
+
     _watchForFrameUpdate() {
         const time = this.element.currentTime;
         if (time != this._time) {
@@ -158,12 +172,12 @@ export class Video implements Media {
     }
 
     _onplay() {
-        this.playpause.innerHTML = "<i class='fa fa-pause'></i>";
+        this.playpauseElem.innerHTML = "<i class='fa fa-pause'></i>";
         this._watchForFrameUpdate();
     }
 
     _onpause() {
-        this.playpause.innerHTML = "<i class='fa fa-play'></i>";
+        this.playpauseElem.innerHTML = "<i class='fa fa-play'></i>";
         this._time = this.element.currentTime;
         this.timeUpdate();
     }
@@ -171,6 +185,36 @@ export class Video implements Media {
     _onseeked() {
         this._time = this.element.currentTime;
         this.timeUpdate();
+    }
+
+    _setFrame(frame, force=false) {
+        if (force || frame != this._getFrame())
+            this.element.currentTime = this.frameDuration * frame + this.frameOffset;
+        return {frame: frame, time: this.element.currentTime}
+    }
+
+    _getFrame() {
+        return Math.floor(this.element.currentTime / this.frameDuration);
+    }
+
+    _frameStep(n=1, force=false) {
+        this._setFrame(n + this._getFrame(), force)
+    }
+
+    playpause() {
+        if (this.element.paused) {
+            this.element.play();
+        } else if (!this.element.paused) {
+            this.element.pause();
+        }
+    }
+
+    stepForward(n = 1) {
+        this._frameStep(n);
+    }
+
+    stepBackward(n = -1) {
+        this._frameStep(n);
     }
 
 }

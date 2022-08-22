@@ -4,7 +4,6 @@ import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './
 import { LinearScale } from './scales';
 import { inJestTest, CachedLoader } from './utils';
 import { ZoomHelper } from './zoom-helper';
-import { EndOfLineState } from 'typescript';
 
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
@@ -1009,6 +1008,7 @@ export class Channel {
                 this.resize = false;
                 this.timeline.draw();
             });
+            entries.forEach(entry => {this.timeline.events["timeline.resize"].forEach(f => f(entry));});
         });
         this.resizeObserver.observe(this.panel);
         return this.panel;
@@ -1148,7 +1148,7 @@ export class Channel {
                 this.channelButtons.minimize.innerText = '+';
             }
             this.timeline.draw();
-        })
+        });
     }
 
     //--------------------------------------------------------------------------

@@ -233,22 +233,27 @@ export class Controller {
         }
 
         if (this.mediaContainer != null && this.timeline != null) {
-            this.media.addEventListener(
-                "media.resize",
-                (entry) => {
-                    if (this.timeline !== undefined) {
-                        this.timeline.rootElem.style.setProperty("width", `${entry.contentRect.width}px`)
-                        this.timeline.resizeFullWidth();
-                        this.timeline.channels.forEach(c => c.resizeWaveform());
-                        this.timeline.draw({ruler: {draw: true, zoom: false, width: true}});
-                    }
-                    if (this.table !== undefined) {
-                        this.table.resizeHeight(
-                            entry.contentRect.height + this.timeline.rootElem.getBoundingClientRect().height
-                        );
-                    }
+            const resize = (entry) => {
+                if (this.timeline !== undefined) {
+                    this.timeline.rootElem.style.setProperty("width", `${entry.contentRect.width}px`)
+                    this.timeline.resizeFullWidth();
+                    this.timeline.channels.forEach(c => c.resizeWaveform());
+                    this.timeline.draw({ruler: {draw: true, zoom: false, width: true}});
                 }
-            );
+                if (this.table !== undefined) {
+                    this.table.resizeHeight(
+                        this.media.height() + this.timeline.rootElem.getBoundingClientRect().height
+                    );
+                }
+            }
+            this.media.addEventListener("media.resize", resize);
+            this.timeline.addEventListener("timeline.resize", (entry) => {
+                if (this.table !== undefined) {
+                    this.table.resizeHeight(
+                        this.media.height() + this.timeline.rootElem.getBoundingClientRect().height
+                    );
+                }
+            });
         }
 
         console.log(this.layout);
@@ -501,7 +506,6 @@ export class Controller {
     }
 
     selectTimelineAnnotation(timelineAnnotationId: number) {
-        console.log(timelineAnnotationId, this.selectedAnnotationId);
         if (timelineAnnotationId == this.selectedAnnotationId) return;
         this.selectedAnnotationId = timelineAnnotationId;
         this.timeline.selectTimelineAnnotation(timelineAnnotationId);
@@ -524,5 +528,17 @@ export class Controller {
 
     setInsertMode() {
         this.timeline.setInsertMode();
+    }
+
+    playpause() {
+        this.media.playpause();
+    }
+
+    stepForward() {
+        this.media.stepForward(1);
+    }
+
+    stepBackward() {
+        this.media.stepBackward(-1);
     }
 }
