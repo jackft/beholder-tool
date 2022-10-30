@@ -881,7 +881,7 @@ export class Channel {
                     .load(obj["uri"])
                     .then(data => {
                         this.state.waveforms[pixelPerSecond].data = data.data;
-                        return this.waveformFormat(pixelPerSecond, data);
+                        return this.waveformFormat(data);
                     }).then(points => {
                         this.state.waveforms[pixelPerSecond].points = points;
                         this.draw();
@@ -922,7 +922,8 @@ export class Channel {
         Object.entries(this.state.waveforms).forEach(x => {
             const pixelsPerSecond = +x[0];
             const obj = x[1];
-            this.waveformFormat(pixelsPerSecond, obj).then(points => {
+            if (obj.data === null) return;
+            this.waveformFormat(obj).then(points => {
                 this.state.waveforms[pixelsPerSecond].points = points;
                 this.draw();
             });
@@ -930,9 +931,8 @@ export class Channel {
         this._resizing = false;
     }
 
-    async waveformFormat(pixelsPerSecond, data) {
+    async waveformFormat(data) {
         const max = data.data.reduce((acc, val) => Math.max(acc, val));
-        //const inc = this.timeline.xscale.inv((1000/pixelsPerSecond)/2);
         const inc = (+this.timeline.timelineSvg.width())/data.data.length
         return data.data.map((y, i) => [inc * i, y/max]);
     }
@@ -1180,6 +1180,7 @@ class TimelineAnnotation {
     rect: Rect = new Rect()
     l: Line = new Line()
     r: Line = new Line()
+    label: Text = new Text()
     height: number = 0
     y: number = 0
 
@@ -1221,6 +1222,11 @@ class TimelineAnnotation {
         this.rect = g.rect();
         this.l = g.line();
         this.r = g.line();
+        this.label = g.text((tspan) => {
+            if (this.state.label !== null && this.state.label.length > 0) {
+                tspan.tspan(this.state.label);
+            }
+        });
         return g;
     }
 
