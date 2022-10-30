@@ -5,6 +5,7 @@
 export interface MediaState {
     src: string,
     type: "video" | "image" | "audio"
+    framerate: number | null
 }
 
 /*----------------------------------------------------------------------------*/
@@ -16,7 +17,7 @@ export interface ChannelState {
     parentId: number | null,
     name: string,
     allowedAnnotationIds: Array<number> | null,
-    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[][] | null}},
+    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[] | null}},
     showWaveform?: boolean
     spectrogram?: string
     showSpectrogram?: boolean

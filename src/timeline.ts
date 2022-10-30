@@ -4,7 +4,6 @@ import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './
 import { LinearScale } from './scales';
 import { inJestTest, CachedLoader } from './utils';
 import { ZoomHelper } from './zoom-helper';
-import { EndOfLineState } from 'typescript';
 
 function deepCopy(o) {return JSON.parse(JSON.stringify(o))}
 
@@ -69,6 +68,7 @@ interface TimelineEvents {
     "timeline.click": Array<(event: MouseEvent) => void>
     "timeline.createChannel": Array<(event: ChannelState) => void>
     "timeline.createAnnotation": Array<(event: {oldState: TimelineAnnotationState, newState: TimelineAnnotationState}) => void>
+    "timeline.deleteChannel": Array<(event: ChannelState) => void>
     "timeline.dragstart": Array<(event: MouseEvent) => void>
     "timeline.drag": Array<(event: MouseEvent) => void>
     "timeline.dragend": Array<(event: MouseEvent) => void>
@@ -156,6 +156,7 @@ export class Timeline {
             "timeline.click": [],
             "timeline.createChannel": [],
             "timeline.createAnnotation": [],
+            "timeline.deleteChannel": [],
             "timeline.dragstart": [],
             "timeline.drag": [],
             "timeline.dragend": [],
@@ -282,6 +283,11 @@ export class Timeline {
         this.timelineAnnotations.forEach(x => x.deselect());
         const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
         timelineAnnotation.select();
+    }
+
+    deselectTimelineAnnotation(timelineAnnotationId) {
+        const timelineAnnotation = this.getTimelineAnnotation(timelineAnnotationId);
+        timelineAnnotation.deselect();
     }
 
     setNormalMode() {
@@ -828,6 +834,9 @@ export class Channel {
     // resize observer things
     resizeObserver?: ResizeObserver
     resize: boolean = true
+
+    _lastResize: number = 0;
+    _resizing: boolean = false;
     // drawn things
     minimized: boolean =  false
     oldHeight: number | null = null
@@ -871,6 +880,7 @@ export class Channel {
                 this.timeline.loader
                     .load(obj["uri"])
                     .then(data => {
+                        this.state.waveforms[pixelPerSecond].data = data.data;
                         return this.waveformFormat(pixelPerSecond, data);
                     }).then(points => {
                         this.state.waveforms[pixelPerSecond].points = points;
@@ -878,6 +888,46 @@ export class Channel {
                     });
             });
         }
+    }
+
+    children() {
+        return this.timeline.channels.filter(channel => channel.parent === null ? false : channel.parent.state.id === this.state.id);
+    }
+
+    recursiveChildren(includeSelf = false) {
+        if (this.children().length === 0) {
+            return [this];
+        }
+        if (includeSelf) {
+            return [this].concat(
+                ...this.children().map(child => child.recursiveChildren())
+            );
+        }
+        return Array.prototype.concat(
+            ...this.children().map(child => child.recursiveChildren())
+        );
+    }
+
+    resizeWaveform() {
+        if (this.state.waveforms === undefined) return;
+        const now = Date.now();
+        if (now - this._lastResize < 300) {
+            if (!this._resizing) {
+                this._resizing = true;
+                setTimeout(() => this.resizeWaveform(), 300 - (now - this._lastResize));
+            }
+            return;
+        }
+        this._lastResize = now;
+        Object.entries(this.state.waveforms).forEach(x => {
+            const pixelsPerSecond = +x[0];
+            const obj = x[1];
+            this.waveformFormat(pixelsPerSecond, obj).then(points => {
+                this.state.waveforms[pixelsPerSecond].points = points;
+                this.draw();
+            });
+        });
+        this._resizing = false;
     }
 
     async waveformFormat(pixelsPerSecond, data) {
@@ -958,6 +1008,7 @@ export class Channel {
                 this.resize = false;
                 this.timeline.draw();
             });
+            entries.forEach(entry => {this.timeline.events["timeline.resize"].forEach(f => f(entry));});
         });
         this.resizeObserver.observe(this.panel);
         return this.panel;
@@ -1077,6 +1128,14 @@ export class Channel {
                 });
             });
         }
+        if (!this.timeline.readonly) {
+            this.channelButtons.delete.addEventListener("click", (event) => {
+                this.timeline.events["timeline.deleteChannel"].forEach(f => {
+                    const newState = deepCopy(this.state);
+                    f(newState);
+                });
+            });
+        }
         this.channelButtons.minimize.addEventListener("click", (event) => {
             if (this.minimized && this.oldHeight !== null) {
                 this.height = this.oldHeight;
@@ -1089,7 +1148,7 @@ export class Channel {
                 this.channelButtons.minimize.innerText = '+';
             }
             this.timeline.draw();
-        })
+        });
     }
 
     //--------------------------------------------------------------------------
@@ -1115,6 +1174,7 @@ class TimelineAnnotation {
     state: TimelineAnnotationState
     timeline: Timeline
     selected: boolean = false
+    tracking: boolean = false
 
     g: G = new G()
     rect: Rect = new Rect()
@@ -1322,6 +1382,7 @@ class TimelineAnnotation {
     }
 
     delete() {
+        if (this.selected) console.warn("deleting selected selected annotation", this);
         this.g.remove();
     }
 
