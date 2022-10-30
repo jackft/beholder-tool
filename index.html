@@ -304,7 +304,7 @@
                     parentId: null,
                     name: "audio",
                     allowedAnnotationIds: [],
-                    waveforms: {1: {uri: "./static/waveform_1.json", data: null}, 20: {uri: "./static/waveform_20.json", data: null}, 200: {uri: "./static/waveform_200.json", data: null}, 2000: {uri: "./static/waveform_2000.json", data: null}},
+                    waveforms: {1: {uri: "./static/waveform_1.json", data: null}, 20: {uri: "./static/waveform_20.json", data: null}, 200: {uri: "./static/waveform_200.json", data: null}},
                     showWaveform: true
                 },
                 {
@@ -315,8 +315,8 @@
                     spectrogram: "./static/spectrogram.png",
                     showSpectrogram: true
                 },
-                {id: 2, parentId: null, name: "human gaze", allowedAnnotationIds: []},
-                {id: 3, parentId: null, name: "participant movement", allowedAnnotationIds: []},
+                {id: 2, parentId: null, name: "gibbon vocalization", allowedAnnotationIds: []},
+                {id: 3, parentId: null, name: "gibbon movement", allowedAnnotationIds: []},
             ],
             timelineAnnotations: [],
             startTime: 0,
@@ -347,16 +347,16 @@
                 "data": {
                     "values": [
                         {
-                            "label": "left",
-                            "value": "left"
+                            "label": "spin",
+                            "value": "spin"
                         },
                         {
-                            "label": "center",
-                            "value": "center"
+                            "label": "jump",
+                            "value": "jump"
                         },
                         {
-                            "label": "right",
-                            "value": "right"
+                            "label": "call",
+                            "value": "call"
                         }
                     ]
                 },
@@ -365,13 +365,13 @@
                 "input": true
             },
             {
-                "label": "open",
+                "label": "loud",
                 "tableView": false,
-                "key": "open",
+                "key": "loud",
                 "conditional": {
                     "show": true,
                     "when": "label",
-                    "eq": "center"
+                    "eq": "call"
                 },
                 "type": "checkbox",
                 "input": true,
