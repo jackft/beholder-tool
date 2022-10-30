@@ -2,12 +2,12 @@
 <html>
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="./bundles/psych-coder.js"></script>
+    <script src="./static/psych-coder.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <link rel='stylesheet' href='./dist/formio.full.css'>
-    <script src='./dist/formio.full.js'></script>
+    <link rel='stylesheet' href='./static/formio.full.css'>
+    <script src='./static/formio.full.js'></script>
 
     <style>
         #beholder {
@@ -74,6 +74,7 @@
 
         .beholder-annotation-table-rows-container {
             overflow-y: scroll;
+            height: 100%;
         }
 
         .beholder-annotation-table-rows {
@@ -293,7 +294,8 @@
     const state = {
         media: {
             src: "./static/gibbon.mp4",
-            type: "video"
+            type: "video",
+            framerate: 60
         },
         timeline: {
             channels: [
@@ -318,7 +320,7 @@
             ],
             timelineAnnotations: [],
             startTime: 0,
-            endTime: 10960
+            endTime: 9780
         },
     };
     const layout = {
