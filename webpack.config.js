@@ -11,7 +11,7 @@ module.exports = {
   },
   mode: "development",
   output: {
-    path: path.resolve(__dirname, 'bundles'),
+    path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
     libraryTarget: 'umd',
     library: 'psychCoder',
