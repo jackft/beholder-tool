@@ -2,7 +2,7 @@
 <html>
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="bundles/psych-coder.js"></script>
+    <script src="/dist/psych-coder.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -74,6 +74,7 @@
 
         .beholder-annotation-table-rows-container {
             overflow-y: scroll;
+            height: 100%;
         }
 
         .beholder-annotation-table-rows {
@@ -293,7 +294,8 @@
     const state = {
         media: {
             src: "/orangutan.mp4",
-            type: "video"
+            type: "video",
+            framerate: 25
         },
         timeline: {
             channels: [
@@ -380,12 +382,15 @@
     const config = {state: state, layout: layout, readonly: false, schema: schema};
     controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
     document.addEventListener("keypress", function(event) {
-        console.log(controller.historyHandler);
         if (event.key == "z") {
             controller.historyHandler.undo();
         }
         else if (event.key == "y") {
             controller.historyHandler.redo();
+        }
+        else if (event.key == " ") {
+            event.preventDefault();
+            controller.playpause();
         }
     });
     document.addEventListener("keyup", function(event) {
@@ -396,6 +401,12 @@
     document.addEventListener("keydown", function(event) {
         if (event.key == "Control") {
             controller.setInsertMode();
+        } else if (event.key == "ArrowLeft") {
+            controller.stepBackward();
+        } else if (event.key == "ArrowRight") {
+            controller.stepForward();
+        } else if (event.key == "Enter") {
+            console.log((new psychCoder.JSONTranscoder()).export(controller.state));
         }
     });
     }

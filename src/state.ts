@@ -5,6 +5,7 @@
 export interface MediaState {
     src: string,
     type: "video" | "image" | "audio"
+    framerate: number | null
 }
 
 /*----------------------------------------------------------------------------*/
