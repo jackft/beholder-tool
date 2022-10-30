@@ -293,9 +293,9 @@
     window.onload = function() {
     const state = {
         media: {
-            src: "/orangutan.mp4",
+            src: "/gibbon.mp4",
             type: "video",
-            framerate: 25
+            framerate: 60
         },
         timeline: {
             channels: [
@@ -304,7 +304,7 @@
                     parentId: null,
                     name: "audio",
                     allowedAnnotationIds: [],
-                    waveforms: {1: {uri: "./long_clip_short.json", data: null}, 20: {uri: "./long_clip.json", data: null}, 200: {uri: "./long_clip_zoom.json", data: null}, 2000: {uri: "./long_clip_zoom2.json", data: null}},
+                    waveforms: {1: {uri: "./waveform_1.json", data: null}, 20: {uri: "./waveform_20.json", data: null}, 200: {uri: "./waveform_200.json", data: null}, 2000: {uri: "./waveform_2000.json", data: null}},
                     showWaveform: true
                 },
                 {
@@ -320,7 +320,7 @@
             ],
             timelineAnnotations: [],
             startTime: 0,
-            endTime: 910840
+            endTime: 9750
         },
     };
     const layout = {
