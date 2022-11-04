@@ -27,9 +27,12 @@ export class Video implements Media {
     element: HTMLVideoElement = document.createElement("video")
     controls: HTMLDivElement = document.createElement("div")
     playpauseElem: HTMLButtonElement = document.createElement("button")
+    nextFrameElem: HTMLButtonElement = document.createElement("button")
+    prevFrameElem: HTMLButtonElement = document.createElement("button")
     volume: HTMLInputElement = document.createElement("input")
     currentTime: HTMLSpanElement = document.createElement("span")
     totalTime: HTMLSpanElement = document.createElement("span")
+    frameElem: HTMLSpanElement = document.createElement("span")
     state: MediaState
     events: MediaEvents
     framerate: number | null
@@ -71,12 +74,27 @@ export class Video implements Media {
         const playContainer = document.createElement("div");
         playContainer.setAttribute("class", "beholder-media-control")
         playContainer.appendChild(this.playpauseElem);
+        this.playpauseElem.setAttribute("title", "play/pause");
         if (this.element.paused) {
             this.playpauseElem.innerHTML = "<i class='fa fa-play'></i>";
         } else {
             this.playpauseElem.innerHTML = "<i class='fa fa-pause'></i>";
         }
+
+        const prevFrameContainer = document.createElement("div");
+        prevFrameContainer.setAttribute("class", "beholder-media-control")
+        this.prevFrameElem.innerHTML = "<i class='fa fa-step-backward'></i>";
+        this.prevFrameElem.setAttribute("title", "prev frame");
+        prevFrameContainer.appendChild(this.prevFrameElem);
+        this.controls.append(prevFrameContainer);
+
         this.controls.appendChild(playContainer);
+        const nextFrameContainer = document.createElement("div");
+        nextFrameContainer.setAttribute("class", "beholder-media-control")
+        this.nextFrameElem.innerHTML = "<i class='fa fa-step-forward'></i>";
+        this.nextFrameElem.setAttribute("title", "next frame");
+        nextFrameContainer.appendChild(this.nextFrameElem);
+        this.controls.append(nextFrameContainer);
 
         const volumeContainer = document.createElement("div");
         const downIcon = document.createElement("i");
@@ -106,6 +124,15 @@ export class Video implements Media {
         });
         this.currentTime.innerText = `${new Date(this.element.currentTime * 1000).toISOString().slice(11,23)}`;
         this.controls.appendChild(timeContainer);
+
+        const frameContainer = document.createElement("div");
+        frameContainer.setAttribute("class", "beholder-media-control")
+        const frameLabel = document.createElement("span");
+        frameLabel.innerText = "frame=";
+        frameContainer.appendChild(frameLabel);
+        frameContainer.appendChild(this.frameElem);
+        this.frameElem.innerText = `${this._getFrame()}`;
+        this.controls.appendChild(frameContainer);
     }
 
     addEventListener(name, handler) {
@@ -143,16 +170,21 @@ export class Video implements Media {
                 this.element.pause();
             }
         });
+
+        this.nextFrameElem.addEventListener("click", (event) => this.stepForward());
+        this.prevFrameElem.addEventListener("click", (event) => this.stepBackward());
     }
 
     updateTime(timeMs: number) {
         this.currentTime.innerText = `${new Date(timeMs * 1000).toISOString().slice(11,23)}`;
+        this.frameElem.innerText = `${this._getFrame()}`;
         this.element.currentTime = timeMs;
     }
 
     timeUpdate() {
         const timeupdateevent = {timeMs: this._time * 1000};
         this.currentTime.innerText = `${new Date(this._time * 1000).toISOString().slice(11,23)}`;
+        this.frameElem.innerText = `${this._getFrame()}`;
         this.events["media.timeupdate"].forEach(f => f(timeupdateevent));
     }
 

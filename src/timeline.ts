@@ -1,4 +1,4 @@
-import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off, Image } from '@svgdotjs/svg.js';
+import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off, Image, Tspan } from '@svgdotjs/svg.js';
 
 import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './state';
 import { LinearScale } from './scales';
@@ -346,6 +346,7 @@ export class Timeline {
                     }
                 });
             }
+            this.timelineAnnotations.forEach(annotation => annotation.rescaleLabel());
         });
         this.zoomHelper.addEventListener("zoomHelper.pan", () => {
             if (this.ruler !== null) {
@@ -1180,9 +1181,11 @@ class TimelineAnnotation {
     rect: Rect = new Rect()
     l: Line = new Line()
     r: Line = new Line()
-    label: Text = new Text()
+    textContainer: Text = new Text()
+    text: Tspan = new Tspan()
     height: number = 0
     y: number = 0
+    vmargin: number = 4
 
     events: AnnotationEvents;
     dragStartState: TimelineAnnotationState | null = null;
@@ -1222,11 +1225,9 @@ class TimelineAnnotation {
         this.rect = g.rect();
         this.l = g.line();
         this.r = g.line();
-        this.label = g.text((tspan) => {
-            if (this.state.label !== null && this.state.label.length > 0) {
-                tspan.tspan(this.state.label);
-            }
-        });
+        this.textContainer = g.text(() => {});
+        this.text = this.textContainer.tspan(this.state.value === null ? "" : this.state.value);
+        this.textContainer.attr("y", `${this.height/2}`);
         return g;
     }
 
@@ -1276,10 +1277,25 @@ class TimelineAnnotation {
         if (channel == null) return;
         const width = this.timeline.xscale.inv(this.state.endTime - this.state.startTime);
         this.rect.attr("width", width);
-        this.rect.attr("height", this.height);
-        this.l.plot([[0, 0], [0, this.height]])
-        this.r.plot([[width, 0], [width, this.height]])
+        this.rect.attr("height", this.height - 2*this.vmargin)
+        this.rect.attr("y", this.vmargin);
+        this.l.plot([[0, this.vmargin], [0, this.height - this.vmargin]]);
+        this.r.plot([[width, this.vmargin], [width, this.height - this.vmargin]]);
+        this.changeLabel();
+        this.textContainer.attr("x", `${width/2}`);
+        this.textContainer.attr("y", `${this.height/2}`);
         this.g.transform({translateX: this.timeline.xscale.inv(this.state.startTime), translateY: this.y});
+        this.rescaleLabel();
+    }
+
+    rescaleLabel() {
+        this.textContainer.transform({scale: this.timeline.zoomHelper.scale});
+    }
+
+    changeLabel() {
+        if (this.text.text() !== this.state.value) {
+            this.text.text(this.state.value === null ? "" : this.state.value);
+        }
     }
 
     addEventListener(name, handler) {

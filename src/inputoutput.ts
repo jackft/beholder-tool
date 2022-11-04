@@ -46,7 +46,7 @@ export class CSVTranscoder implements AnnotationTranscoder {
 
         state.timeline.timelineAnnotations.forEach(
             annotation => {
-                columns.add(annotation.label);
+                columns.add(annotation.value);
                 annotation.modifiers.forEach(
                     modifier => {
                         columns.add(modifier.label);

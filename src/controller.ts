@@ -286,7 +286,7 @@ export class Controller {
                                 id: tId,
                                 channelId: channel.state.id,
                                 type: "interval",
-                                label: null,
+                                value: null,
                                 startFrame: null,
                                 endFrame: null,
                                 startTime: time,
@@ -438,6 +438,12 @@ export class Controller {
                 tableTimelineAnnotation.addEventListener(
                     "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
                 );
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.datachange", event => {
+                        const annotation = this.timeline.getTimelineAnnotation(timelineAnnotatation.state.id);
+                        annotation.state.value = event.value;
+                        annotation.changeLabel();
+                });
             }
         };
         if (tracking) {

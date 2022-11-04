@@ -88,26 +88,21 @@ export class Table {
             this.rootElem.setAttribute("class", "beholder-annotation-table");
 
             // buttons
-            // const buttonGroup = document.createElement("div");
-            // buttonGroup.setAttribute("class", "btn-group");
-            // buttonGroup.setAttribute("role", "group");
-            // buttonGroup.setAttribute("aria-label", "Basic example");
-            // this.rootElem.appendChild(buttonGroup);
+             const buttonGroup = document.createElement("div");
+             buttonGroup.setAttribute("class", "btn-group");
+             buttonGroup.setAttribute("role", "group");
+             buttonGroup.setAttribute("aria-label", "Basic example");
+             this.rootElem.appendChild(buttonGroup);
 
-            // const timelineButton = document.createElement("button");
-            // timelineButton.setAttribute("class", "btn btn-secondary");
-            // timelineButton.innerText = "Timeline";
-            // buttonGroup.appendChild(timelineButton);
+             const timelineButton = document.createElement("button");
+             timelineButton.setAttribute("class", "btn btn-secondary");
+             timelineButton.innerText = "Full";
+             buttonGroup.appendChild(timelineButton);
 
-            // const video = document.createElement("button");
-            // video.setAttribute("class", "btn btn-secondary");
-            // video.innerText = "Media";
-            // buttonGroup.appendChild(video);
-
-            // const entities = document.createElement("button");
-            // entities.setAttribute("class", "btn btn-secondary");
-            // entities.innerText = "Entity";
-            // buttonGroup.appendChild(entities);
+             const video = document.createElement("button");
+             video.setAttribute("class", "btn btn-secondary");
+             video.innerText = "Quick";
+             buttonGroup.appendChild(video);
 
             // channel filter
             this.channelFilterGroupElem = document.createElement("div");
@@ -327,9 +322,13 @@ class TimelineAnnotation {
 
     formio() {
         const schema = deepCopy(this.table.schema);
+        schema["components"] = schema["components"].filter(component => {
+            if (component.channels === undefined || component.channels === []) return true;
+            return component.channels.includes(this.state.channelId);
+        });
         for (let component of schema["components"]) {
-            if (this.state.label !== undefined && component["label"] === "label") {
-                component["defaultValue"] = this.state.label;
+            if (this.state.value !== undefined && component["label"] === "label") {
+                component["defaultValue"] = this.state.value;
             } else {
                 for (let modifier of this.state.modifiers) {
                     if (modifier.value !== undefined && component["label"] == modifier.label) {
@@ -347,7 +346,7 @@ class TimelineAnnotation {
             type: "textfield",
             key: "label",
             label: "<strong>label:</strong>",
-            defaultValue: this.state.label,
+            defaultValue: this.state.value,
             disabled: true
         }
         components.push(mainLabel);
@@ -384,7 +383,7 @@ class TimelineAnnotation {
         const key = event.changed.component.key;
         const value = event.changed.value;
         if (key === "label") {
-            this.state.label = value;
+            this.state.value = value;
             this.draw();
         } else {
             for (let modifier of this.state.modifiers) {
@@ -446,7 +445,7 @@ class TimelineAnnotation {
         this.startElem.innerText = `${new Date(this.state.startTime).toISOString().slice(11,23)}`;
         this.endElem.innerText = `${new Date(this.state.endTime).toISOString().slice(11,23)}`;
         this.channelElem.innerText = `${this.channelName()}`;
-        this.detailElem.innerText = `${this.state.label}`;
+        this.detailElem.innerText = `${this.state.value}`;
     }
 
     delete() {
