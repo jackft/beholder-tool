@@ -10,3 +10,4 @@ do
 done
 
 sox tmp.wav -m -n spectrogram -c 1 -y 100 -x 50000 -r -o spectrogram.png
+rm tmp.wav
