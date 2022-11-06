@@ -286,7 +286,7 @@ export class Controller {
                                 id: tId,
                                 channelId: channel.state.id,
                                 type: "interval",
-                                label: null,
+                                value: null,
                                 startFrame: null,
                                 endFrame: null,
                                 startTime: time,
@@ -424,10 +424,10 @@ export class Controller {
             if (this.timeline === undefined) return;
             const timelineAnnotatation = this.timeline.createTimelineAnnotation(newState);
             timelineAnnotatation.addEventListener(
-                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState),
+                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState)
             );
             timelineAnnotatation.addEventListener(
-                "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState),
+                "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState)
             );
             timelineAnnotatation.addEventListener(
                 "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
@@ -438,6 +438,12 @@ export class Controller {
                 tableTimelineAnnotation.addEventListener(
                     "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
                 );
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.datachange", event => {
+                        const annotation = this.timeline.getTimelineAnnotation(timelineAnnotatation.state.id);
+                        annotation.state.value = event.value;
+                        annotation.changeLabel();
+                });
             }
         };
         if (tracking) {
@@ -501,8 +507,51 @@ export class Controller {
         this.table.updateTimelineAnnotationWithoutTracking(newState);
     }
 
-    deleteTimelineAnnotation() {
+    deleteSelectedTimelineAnnotation() {
+        if (this.selectedAnnotationId === null) return;
+        this.deleteTimelineAnnotation(
+            this.timeline.getTimelineAnnotation(this.selectedAnnotationId).state
+        );
+    }
 
+    deleteTimelineAnnotation(state: TimelineAnnotationState) {
+        if (this.timeline === undefined) return;
+        const newState = deepCopy(state);
+        const undo = () => {
+            if (this.timeline === undefined) return;
+            const timelineAnnotatation = this.timeline.createTimelineAnnotation(newState);
+            timelineAnnotatation.addEventListener(
+                "annotation.dragend", event => this.updateTimelineAnnotation(event.oldState, event.newState),
+            );
+            timelineAnnotatation.addEventListener(
+                "annotation.drag", event => this.updateTimelineAnnotationWithoutTracking(event.oldState, event.newState),
+            );
+            timelineAnnotatation.addEventListener(
+                "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
+            );
+            this.timeline.drawAnnotations();
+            if (this.table) {
+                const tableTimelineAnnotation = this.table.createTimelineAnnotation(newState);
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.click", event => this.selectTimelineAnnotation(timelineAnnotatation.state.id)
+                );
+                tableTimelineAnnotation.addEventListener(
+                    "annotation.datachange", event => {
+                        const annotation = this.timeline.getTimelineAnnotation(timelineAnnotatation.state.id);
+                        annotation.state.value = event.value;
+                        annotation.changeLabel();
+                });
+            }
+        };
+        const redo = () => {
+            if (this.timeline === undefined) return;
+            this.deselectTimelineAnnotation(newState.id);
+            this.timeline.deleteTimelineAnnotation(newState.id);
+            if (this.table) {
+                this.table.deleteTimelineAnnotation(newState.id);
+            }
+        };
+        this.historyHandler.do(new StateTransition(redo, undo));
     }
 
     selectTimelineAnnotation(timelineAnnotationId: number) {
@@ -519,6 +568,21 @@ export class Controller {
             this.selectedAnnotationId = null;
             this.timeline.deselectTimelineAnnotation(timelineAnnotationId);
             this.table.deselectTimelineAnnotation(timelineAnnotationId);
+        }
+    }
+
+    deselect() {
+        if (this.selectedAnnotationId === null) return;
+        if (this.table) {
+            this.table.getTimelineAnnotation(this.selectedAnnotationId).blur();
+        }
+        this.deselectTimelineAnnotation(this.selectedAnnotationId);
+    }
+
+    focus() {
+        if (this.selectedAnnotationId === null) return;
+        if (this.table) {
+            this.table.getTimelineAnnotation(this.selectedAnnotationId).focus();
         }
     }
 

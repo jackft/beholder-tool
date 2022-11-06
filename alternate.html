@@ -2,7 +2,7 @@
 <html>
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="bundles/psych-coder.js"></script>
+    <script src="/dist/psych-coder.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -25,6 +25,10 @@
             display: flex;
             width: max-content;
             height: max-content;
+        }
+
+        svg:not(.timeline-resize).insert {
+            cursor: cell !important;
         }
 
         .beholder-media {
@@ -68,11 +72,25 @@
             max-height: 100%;
         }
 
-        .beholder-annotation-table-rows {
+        .beholder-annotation-table-rows-container {
             overflow-y: scroll;
+            height: 100%;
+        }
+
+        div.beholder-annotation-table-rows {
             height: 100%;
             display: flex;
             flex-direction: column;
+        }
+
+        table.beholder-annotation-table-rows {
+            border:1px solid black;
+        }
+        .beholder-annotation-table-rows > tr > th {
+            border:1px solid black;
+        }
+        .beholder-annotation-table-rows > tr > td{
+            border:1px solid black;
         }
 
         .beholder-annotation-table-row {
@@ -162,11 +180,17 @@
             background-color: #2c2c32;
             resize: vertical;
             overflow: hidden;
+            color: #515151;
+            font-size: 12px;
         }
 
         .beholder-ruler-panel-child-child {
             width: 100%;
             height: 100%;
+        }
+
+        .beholder-ruler-mode {
+            color: #919191;
         }
 
         .beholder-ruler text {
@@ -214,13 +238,20 @@
             line-height: 0;
         }
 
-        .beholder-interval {
+        .beholder-waveform {
+            stroke: #920e81;
+            stroke-width: 1px;
+            vector-effect: non-scaling-stroke;
+        }
+
+
+        .beholder-interval:not(.selected):not(.resize) {
             cursor: pointer;
         }
 
         .beholder-interval > rect{
-            fill: #0e2692;
-            opacity: 0.8;
+            fill: #0e9292;
+            opacity: 0.3;
             stroke: #a1a1a1;
             stroke-width: 1px;
             stroke-opacity: 0.2;
@@ -244,9 +275,25 @@
         }
         .beholder-interval.selected > rect{
             fill: #587C0C;
+            opacity: 0.5;
         }
-        .beholder-interval:not(.readonly).selected > rect{
+        .beholder-interval:not(.readonly).selected:not(.resize) > rect{
             cursor: grab;
+        }
+        .beholder-interval.selected.beholder-dragging:not(.resize) > rect{
+            cursor: grabbing;
+        }
+        .beholder-interval.resize {
+            cursor: col-resize;
+        }
+        .beholder-interval > text {
+            text-anchor: middle;
+            pointer-events: none;
+            fill: #d1d1d1;
+            font-size: 12px;
+            font-family: "Inconsolata; mono";
+            dominant-baseline: "middle";
+            text-anchor: "middle";
         }
 
         .beholder-annotation-table > .btn-group {
@@ -265,37 +312,42 @@
     window.onload = function() {
     const state = {
         media: {
-            src: "/orangutan.mp4",
-            type: "video"
+            src: "/gibbon.mp4",
+            type: "video",
+            framerate: 60
         },
         timeline: {
             channels: [
-                {id: 1, parentId: null, name: "human gaze", allowedAnnotationIds: []},
-                {id: 2, parentId: null, name: "participant movement", allowedAnnotationIds: []},
-            ],
-            timelineAnnotations: [
                 {
                     id: 0,
-                    channelId: 2,
-                    type: "interval",
-                    label: "blah",
-                    startFrame: 0,
-                    endFrame: 1000,
-                    startTime: 0,
-                    endTime: 1000,
-                    modifiers: []
-                }
+                    parentId: null,
+                    name: "audio",
+                    allowedAnnotationIds: [],
+                    waveforms: {1: {uri: "./waveform_1.json", data: null}, 20: {uri: "./waveform_20.json", data: null}, 200: {uri: "./waveform_200.json", data: null}, 2000: {uri: "./waveform_2000.json", data: null}},
+                    showWaveform: true
+                },
+                {
+                    id: 1,
+                    parentId: null,
+                    name: "spectrogram",
+                    allowedAnnotationIds: [],
+                    spectrogram: "./spectrogram.png",
+                    showSpectrogram: true
+                },
+                {id: 2, parentId: null, name: "vocal", allowedAnnotationIds: []},
+                {id: 3, parentId: null, name: "movement", allowedAnnotationIds: []},
             ],
+            timelineAnnotations: [],
             startTime: 0,
-            endTime: 1000*60,
+            endTime: 9750
         },
     };
     const layout = {
         cssGridRows: "repeat(3,auto)",
         cssGridCols: "repeat(3,fit-content())",
-        timelineLayout: [2,1,3,3],
-        tableLayout: [1, 3, 4, 4],
-        mediaLayout: [1,1,2,3],
+        mediaLayout: [1,1,1,4],
+        tableLayout: [3, 1, 4, 4],
+        timelineLayout: [2,1,2,4],
         channelHeight: 80,
         treeWidth: 50,
 
@@ -305,59 +357,77 @@
         table: true,
         ruler: true
     };
-    const config = {state: state, layout: layout, readonly: true};
+    const schema =
+    {
+        "components": [
+            {
+                "label": "label",
+                "tableView": true,
+                "channels": [2, 3],
+                "data": {
+                    "values": [
+                        {
+                            "label": "left",
+                            "value": "left"
+                        },
+                        {
+                            "label": "center",
+                            "value": "center"
+                        },
+                        {
+                            "label": "right",
+                            "value": "right"
+                        }
+                    ]
+                },
+                "key": "label",
+                "type": "select",
+                "input": true
+            },
+            {
+                "label": "loud",
+                "tableView": false,
+                "channels": [2],
+                "key": "loud",
+                "conditional": {
+                    "show": true,
+                    "when": "label",
+                    "eq": "center"
+                },
+                "type": "checkbox",
+                "input": true,
+                "defaultValue": false
+            }
+        ]
+    };
+    const config = {state: state, layout: layout, readonly: false, schema: schema};
     controller = new psychCoder.Controller(document.querySelector("#beholder"), config);
-    controller.createTimelineAnnotation({
-        id: 1,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 500,
-        endFrame: 1500,
-        startTime: 500,
-        endTime: 1500,
-        modifiers: []
-    });
-    controller.createTimelineAnnotation({
-        id: 2,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 1510,
-        endFrame: 2000,
-        startTime: 1510,
-        endTime: 2000,
-        modifiers: [{label: "close", value: true}]
-    });
-    controller.createTimelineAnnotation({
-        id: 3,
-        channelId: 2,
-        type: "interval",
-        label: "blah",
-        startFrame: 3000,
-        endFrame: 5000,
-        startTime: 6000,
-        endTime: 9000,
-        modifiers: [{label: "close", value: true}]
-    });
-    controller.createTimelineAnnotation({
-        id: 4,
-        channelId: 1,
-        type: "interval",
-        label: "blah",
-        startFrame: 0,
-        endFrame: 1000,
-        startTime: 4000,
-        endTime: 8000,
-        modifiers: []
-    });
     document.addEventListener("keypress", function(event) {
-        console.log(controller.historyHandler);
         if (event.key == "z") {
             controller.historyHandler.undo();
         }
         else if (event.key == "y") {
             controller.historyHandler.redo();
+        }
+        else if (event.key == " ") {
+            event.preventDefault();
+            controller.playpause();
+        }
+    });
+    document.addEventListener("keyup", function(event) {
+        if (event.key == "Control") {
+            controller.setNormalMode();
+        }
+    });
+    document.addEventListener("keydown", function(event) {
+        if (event.key == "Control") {
+            controller.setInsertMode();
+        } else if (event.key == "ArrowLeft") {
+            controller.stepBackward();
+        } else if (event.key == "ArrowRight") {
+            controller.stepForward();
+        } else if (event.key == "Enter") {
+            console.log((new psychCoder.JSONTranscoder()).export(controller.state));
         }
     });
     }

@@ -44,7 +44,7 @@ export interface TimelineAnnotationState {
     id: number,
     channelId: number,
     type: string,
-    label: string,
+    value: string,
     startFrame: number,
     endFrame: number,
     startTime: number,

@@ -1,4 +1,4 @@
-import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off, Image } from '@svgdotjs/svg.js';
+import { SVG, Shape, Svg, Rect, Line, Polyline, PointArrayAlias, Point, PointArray, Text, G, Matrix, on, off, Image, Tspan } from '@svgdotjs/svg.js';
 
 import { ChannelState, Layout, TimelineAnnotationState, TimelineState } from './state';
 import { LinearScale } from './scales';
@@ -346,6 +346,7 @@ export class Timeline {
                     }
                 });
             }
+            this.timelineAnnotations.forEach(annotation => annotation.rescaleLabel());
         });
         this.zoomHelper.addEventListener("zoomHelper.pan", () => {
             if (this.ruler !== null) {
@@ -461,29 +462,54 @@ export class Timeline {
             sets.forEach(set => {
                 const maxOverlapSize = set.maxOverlapSize;
                 const occupied: Array<null | TimelineAnnotation> = Array(maxOverlapSize).fill(null);
-                set.g.sort((a, b) => a.state.id - b.state.id).forEach((annotation) => {
+
+                let height = (channel.height - (maxOverlapSize + 1) * channel.annotationMargin) / maxOverlapSize;
+                set.g.filter(annotation => annotation.selected).forEach((annotation) => {
+                    let difference = Number.MAX_VALUE;
                     let index = -1;
-                    for (let i = 0; i < occupied.length; ++i) {
-                        const elem = occupied[i];
-                        if (elem == null) {
+                    for (let i = 0; i < maxOverlapSize; ++i) {
+                        const center = channel.y
+                                     + (height * i)
+                                     + (channel.annotationMargin * (1 + i))
+                                     + (height / 2);
+                        const _diff = (center - annotation.dragY)**2;
+                        if (_diff < difference) {
+                            difference = _diff;
                             index = i;
-                            occupied[i] = annotation;
-                            break;
-                        } else if (elem.state.endTime <= annotation.state.startTime) {
-                            index = i;
-                            occupied[i] = annotation;
-                            break;
                         }
                     }
-                    if (index == -1) {
-                        index = occupied.length - 1;
-                    }
-                    annotation.height = channel.height / maxOverlapSize;
-                    annotation.y = channel.y + (annotation.height * index);
-                    annotation.draw();
+                    this.positionAnnotationsVertically(height, occupied, channel, annotation, index);
+                });
+                set.g.sort((a, b) => b.state.startTime - a.state.startTime)
+                     .filter((annotation) => !annotation.selected)
+                     .forEach((annotation) => {
+                    this.positionAnnotationsVertically(height, occupied, channel, annotation);
                 });
             });
         })
+    }
+
+    positionAnnotationsVertically(height, occupied, channel, annotation, index=-1) {
+        let _index = index;
+        if (_index === -1) {
+            for (let i = 0; i < occupied.length; ++i) {
+                const elem = occupied[i];
+                if (elem === null || !overlaps(elem.state, annotation.state)) {
+                    _index = i;
+                    occupied[i] = annotation;
+                    break;
+                }
+            }
+            if (_index == -1) {
+                _index = occupied.length - 1;
+            }
+        }
+        occupied[_index] = annotation;
+        annotation.height = height;
+        annotation.y = channel.y
+                     + (height * _index)
+                     + (channel.annotationMargin * (1 + _index));
+        annotation.draw();
     }
 
     timechange(timechange: TimelineTimeChange) {
@@ -838,6 +864,7 @@ export class Channel {
     _lastResize: number = 0;
     _resizing: boolean = false;
     // drawn things
+    annotationMargin = 3;
     minimized: boolean =  false
     oldHeight: number | null = null
     height: number
@@ -1157,6 +1184,12 @@ export class Channel {
         this.panel.remove();
         this.treePath.remove();
         this.channel.remove();
+        if (this.spectrogram !== null) {
+            this.spectrogram.remove();
+        }
+        if (this.waveform !== null) {
+            this.waveform.remove();
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -1180,7 +1213,8 @@ class TimelineAnnotation {
     rect: Rect = new Rect()
     l: Line = new Line()
     r: Line = new Line()
-    label: Text = new Text()
+    textContainer: Text = new Text()
+    text: Tspan = new Tspan()
     height: number = 0
     y: number = 0
 
@@ -1188,6 +1222,7 @@ class TimelineAnnotation {
     dragStartState: TimelineAnnotationState | null = null;
     draggedShape: string = "";
     dragStartX: number = -1;
+    dragY: number = -1;
 
     constructor(timeline: Timeline, state: TimelineAnnotationState) {
         this.timeline = timeline;
@@ -1222,11 +1257,9 @@ class TimelineAnnotation {
         this.rect = g.rect();
         this.l = g.line();
         this.r = g.line();
-        this.label = g.text((tspan) => {
-            if (this.state.label !== null && this.state.label.length > 0) {
-                tspan.tspan(this.state.label);
-            }
-        });
+        this.textContainer = g.text(() => {});
+        this.text = this.textContainer.tspan(this.state.value === null ? "" : this.state.value);
+        this.textContainer.attr("y", `${this.height/2}`);
         return g;
     }
 
@@ -1276,10 +1309,24 @@ class TimelineAnnotation {
         if (channel == null) return;
         const width = this.timeline.xscale.inv(this.state.endTime - this.state.startTime);
         this.rect.attr("width", width);
-        this.rect.attr("height", this.height);
-        this.l.plot([[0, 0], [0, this.height]])
-        this.r.plot([[width, 0], [width, this.height]])
+        this.rect.attr("height", this.height)
+        this.l.plot([[0, 0], [0, this.height]]);
+        this.r.plot([[width, 0], [width, this.height]]);
+        this.changeLabel();
+        this.textContainer.attr("x", `${width/2}`);
+        this.textContainer.attr("y", `${this.height/2}`);
         this.g.transform({translateX: this.timeline.xscale.inv(this.state.startTime), translateY: this.y});
+        this.rescaleLabel();
+    }
+
+    rescaleLabel() {
+        this.textContainer.transform({scale: this.timeline.zoomHelper.scale});
+    }
+
+    changeLabel() {
+        if (this.text.text() !== this.state.value) {
+            this.text.text(this.state.value === null ? "" : this.state.value);
+        }
     }
 
     addEventListener(name, handler) {
@@ -1337,6 +1384,7 @@ class TimelineAnnotation {
         const [xMouse, yMouse] = normalizeEvent(event);
         const {x, y} = this.timeline.point(xMouse, yMouse);
         this.dragStartX = x;
+        this.dragY = y;
         on(document, "mousemove.annotation", ((event: MouseEvent) => this.drag(event)) as any);
         on(document, "mouseup.annotation", ((event: MouseEvent) => this.dragend(event)) as any);
         if (this.draggedShape === "r" || this.draggedShape === "l") {
@@ -1347,6 +1395,7 @@ class TimelineAnnotation {
     drag(event: MouseEvent) {
         const [xMouse, yMouse] = normalizeEvent(event);
         const {x, y} = this.timeline.point(xMouse, yMouse);
+        this.dragY = y;
         if (this.state.type == "interval") {
             if (this.draggedShape == "l")
                 this.state.startTime = this.timeline.xscale.call(x);
