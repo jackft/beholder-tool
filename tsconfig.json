@@ -1,16 +1,30 @@
 {
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"],
-  "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
-    "lib": [ "es2015", "dom" ],
-    "outDir": "lib",
-    "rootDir": "src",
-    "sourceMap": true,
-    "declaration": true,
-    "noImplicitAny": false,
+    "compilerOptions": {
+        // Settings for the compiler
+        "outDir": "./dist/",
+        "sourceMap": true,
+        "target": "es2015",
+        "module": "ESNext",
 
-    "strict": false
-  }
+        // Rules for your code
+        "strict": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        //"noUnusedParameters": true,
+        //"noUnusedLocals": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+
+        // Settings for linking source files
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "allowSyntheticDefaultImports": true,
+        "experimentalDecorators": true,
+
+    },
+    // Folder for your code
+    "include": [
+        "./src/**/*"
+    ]
 }

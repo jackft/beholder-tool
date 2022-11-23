@@ -1,17 +1,3 @@
-/*----------------------------------------------------------------------------*/
-/* Media                                                                      */
-/*----------------------------------------------------------------------------*/
-
-export interface MediaState {
-    src: string,
-    type: "video" | "image" | "audio"
-    framerate: number | null
-}
-
-/*----------------------------------------------------------------------------*/
-/* Timeline                                                                   */
-/*----------------------------------------------------------------------------*/
-
 export interface ChannelState {
     id: number,
     parentId: number | null,
@@ -23,16 +9,7 @@ export interface ChannelState {
     showSpectrogram?: boolean
 }
 
-export interface TimelineState {
-    channels: Array<ChannelState>
-    timelineAnnotations: Array<TimelineAnnotationState>
-    startTime: number
-    endTime: number
-}
 
-/*----------------------------------------------------------------------------*/
-/* Annotations                                                                */
-/*----------------------------------------------------------------------------*/
 
 export interface AnnotationModifierState {
     id: number,
@@ -50,41 +27,4 @@ export interface TimelineAnnotationState {
     startTime: number,
     endTime: number,
     modifiers: Array<AnnotationModifierState>
-}
-
-export interface ChannelAnnotationState {
-    id: number,
-    channelId: number,
-    label: string,
-    modifiers: Array<AnnotationModifierState>
-}
-
-/*----------------------------------------------------------------------------*/
-
-export interface State {
-    media: MediaState,
-    timeline: TimelineState | null,
-}
-
-export interface Layout {
-    cssGridRows: string,
-    cssGridCols: string,
-    timelineLayout?: [number, number, number, number],
-    tableLayout?: [number, number, number, number],
-    mediaLayout?: [number, number, number, number],
-    ruler?: boolean,
-    channelHeight?: number,
-    treeWidth?: number,
-
-    maxMediaInitWidth: number,
-    maxTimelineInitWidth: number,
-
-    table?: boolean
-}
-
-export interface Config {
-    state: State,
-    layout: Layout,
-    readonly?: boolean,
-    schema?: Object,
 }

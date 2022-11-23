@@ -1,56 +1,31 @@
 {
-  "name": "psych-coder",
-  "version": "0.0.0",
-  "description": "",
-  "main": "index.js",
+  "license": "",
   "scripts": {
-    "test": "jest",
-    "build": "tsc",
-    "watch": "tsc -w",
-    "lint": "eslint . --ext .ts"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jackft/psych-coder.js.git"
-  },
-  "author": "Jack Terwilliger",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/jackft/psych-coder.js/issues"
-  },
-  "homepage": "https://github.com/jackft/psych-coder.js#readme",
-  "jest": {
-    "preset": "ts-jest",
-    "testMatch": [
-      "tests/**/*.test.js"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "ts",
-      "tsx"
-    ]
-  },
-  "devDependencies": {
-    "@types/jest": "^26.0.23",
-    "@types/resize-observer-browser": "^0.1.6",
-    "@typescript-eslint/eslint-plugin": "^4.23.0",
-    "@typescript-eslint/parser": "^4.23.0",
-    "eslint": "^7.26.0",
-    "jest": "^26.6.3",
-    "terser-webpack-plugin": "^5.1.2",
-    "ts-jest": "^26.5.6",
-    "webpack": "^5.37.0",
-    "webpack-cli": "^4.7.0"
+    "start": "webpack serve --mode=development",
+    "build": "run-s clean build-only",
+    "build-only": "webpack --mode=production",
+    "clean": "rimraf dist"
   },
   "dependencies": {
-    "@babel/parser": "^7.14.2",
-    "@svgdotjs/svg.js": "^3.1.2",
-    "@svgdotjs/svg.panzoom.js": "^2.1.2",
-    "@types/jquery": "^3.5.14",
-    "awesome-typescript-loader": "^5.2.1",
-    "formiojs": "^4.14.6",
-    "jquery": "^3.6.0",
-    "ts-loader": "^9.1.2",
-    "typescript": "^3.9.9"
+    "@pixi-essentials/cull": "^1.1.0",
+    "interval-tree": "^0.1.0",
+    "node-interval-tree": "^2.0.1",
+    "pixi-viewport": "^4.37.0",
+    "pixi.js": "^6.5.7",
+    "stats-js": "^1.0.1",
+    "stats.js": "^0.17.0"
+  },
+  "devDependencies": {
+    "@types/stats.js": "^0.17.0",
+    "copy-webpack-plugin": "^10.2.4",
+    "html-webpack-plugin": "^5.5.0",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
+    "terser-webpack-plugin": "^5.3.1",
+    "ts-loader": "^9.2.8",
+    "typescript": "^4.6.3",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.8.1"
   }
 }

@@ -1,19 +1,32 @@
+interface ScaleOptions {
+    warn?: boolean,
+    name?: String
+}
+
+const defaultOptions: ScaleOptions =  {
+    warn: false,
+    name: undefined
+}
+
 export interface Scale {
-    call(number): number
-    inv(number): number
+    name: String | undefined
+    call(x: number): number
+    inv(y: number): number
 }
 
 export class LinearScale implements Scale {
 
     warn: boolean
+    name: String | undefined
     domain: [number, number]
     range: [number, number]
     offset: number
     intercept: number
     scale: number
 
-    constructor(domain: [number, number], range: [number, number], warn=true) {
-        this.warn = warn
+    constructor(domain: [number, number], range: [number, number], opts: ScaleOptions = defaultOptions) {
+        this.warn = opts.warn === undefined ? false : opts.warn;
+        this.name = opts.name;
         this.domain = domain;
         this.range = range;
         this.offset = - domain[0];
