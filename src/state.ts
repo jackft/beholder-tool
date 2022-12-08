@@ -1,12 +1,20 @@
+/*----------------------------------------------------------------------------*/
+/* Media                                                                      */
+/*----------------------------------------------------------------------------*/
+
+export interface MediaState {
+    src: string,
+    type: "video" | "image" | "audio"
+    framerate: number | null
+}
+
 export interface ChannelState {
     id: number,
     parentId: number | null,
     name: string,
     allowedAnnotationIds: Array<number> | null,
-    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[] | null}},
-    showWaveform?: boolean
-    spectrogram?: string
-    showSpectrogram?: boolean
+    showBackground?: boolean,
+    background?: string
 }
 
 
@@ -28,3 +36,15 @@ export interface TimelineAnnotationState {
     endTime: number,
     modifiers: Array<AnnotationModifierState>
 }
+
+export const timelineAnnotationStateKeys = [
+    "id",
+    "channelId",
+    "type",
+    "value",
+    "startFrame",
+    "endFrame",
+    "startTime",
+    "endTime",
+    "modifiers"
+];
