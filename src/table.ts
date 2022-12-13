@@ -1,4 +1,5 @@
 import * as state from './state';
+import { Annotator } from './annotator';
 
 import { CellComponent, RowComponent, TabulatorFull as Tabulator } from 'tabulator-tables';
 
@@ -25,9 +26,11 @@ const timeFormatter = (cell, formatterParams, onRendered) => {
 }
 
 export class TabulatorTable implements Table {
+    public annotator: Annotator
     public table: Tabulator
     private events: TableEvents
-    constructor(rootElem: HTMLElement) {
+    constructor(annotator: Annotator, rootElem: HTMLElement) {
+        this.annotator = annotator;
         this.events = {
             "selectTimelineAnnotation": [],
             "updateTimelineAnnotation": []
@@ -45,6 +48,7 @@ export class TabulatorTable implements Table {
             columns: [
                 { title: "Start Time", field: "startTime", formatter: timeFormatter },
                 { title: "End Time", field: "endTime", formatter: timeFormatter },
+                { title: "Channel", field: "channel",  headerFilter: "list", headerFilterParams:{valuesLookup:true, clearable:true}},
                 { title: "value", field: "value", editor: "input", headerFilter: true, hozAlign: "center" },
             ],
         };
@@ -82,23 +86,34 @@ export class TabulatorTable implements Table {
 
     //
 
+    channelName(state: state.TimelineAnnotationState) {
+        const channel = this.annotator.timeline.findChannelById(state.channelId);
+        if (channel === undefined) return "<none>";
+        return channel.state.name;
+    }
+
     batchCreateTimelineAnnotation(states: Array<state.TimelineAnnotationState>): void {
         setTimeout(() => {
+            states.forEach(state => state["channel"] = this.channelName(state));
             this.table.addData(states);
         }, 10);
     }
 
     createTimelineAnnotation(state: state.TimelineAnnotationState): void {
-
+        state["channel"] = this.channelName(state);
+        this.table.addData([state]);
     }
     updateTimelineAnnotation(state: state.TimelineAnnotationState): void {
         const row = this.table.getRow(state.id);
+        if (!row) return;
         row.update(state);
         // @ts-ignore
         this.table.setSort(this.table.getSorters());
     }
     deleteTimelineAnnotation(state: state.TimelineAnnotationState): void {
-
+        const row = this.table.getRow(state.id);
+        if (!row) return;
+        row.delete();
     }
     selectTimelineAnnotation(state: state.TimelineAnnotationState): void {
         const row = this.table.getRow(state.id);
@@ -106,6 +121,7 @@ export class TabulatorTable implements Table {
         row.select();
     }
     deselectTimelineAnnotation(state: state.TimelineAnnotationState): void {
-
+        const row = this.table.getRow(state.id);
+        row.deselect();
     }
 }

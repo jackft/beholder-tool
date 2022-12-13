@@ -5,6 +5,7 @@ export interface Media {
     mediaElem: HTMLElement
     element: HTMLElement
     state: MediaState
+    readState(state: MediaState): void
     addEventListener(name, handler): void
     updateTime(timeMs: number): void
     height(): number
@@ -59,6 +60,14 @@ export class Video implements Media {
         this.initControls();
         this._time = this.element.currentTime;
         this.subscribeToEvents();
+    }
+
+    readState(state: MediaState) {
+        this.state = state;
+        this.element.src = state.src;
+        this.framerate = state.framerate || 30;
+        this.frameDuration = 1/this.framerate;
+        this.frameOffset = 0.3 * this.frameDuration; // magic number. don't know why this works.
     }
 
     initVideo() {
