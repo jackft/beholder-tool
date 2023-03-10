@@ -42,6 +42,7 @@ export class Video implements Media {
     _time: number
     constructor(rootElem: HTMLElement, state: MediaState) {
         this.mediaElem = document.createElement("div");
+        this.mediaElem.setAttribute("class", "beholder-media");
         rootElem.appendChild(this.mediaElem);
         this.mediaElem.appendChild(this.element);
         this.mediaElem.appendChild(this.controls);
@@ -159,7 +160,7 @@ export class Video implements Media {
     subscribeToEvents() {
         if (inJestTest()) return;
         const mediaResizeObserver = new ResizeObserver(entries => {
-            entries.forEach(entry => {
+            entries.forEach(entry => { 
                 this.events["media.resize"].forEach(f => f(entry));
             });
         });

@@ -56,6 +56,27 @@ class HistoryHandler {
 
 }
 
+export class ModifierSchema {
+    public key: string;
+    public name: string;
+    public type: string;
+    public options?: Array<string> | null;
+
+    constructor(modifier) {
+        this.key = modifier.key;
+        this.name = modifier.name;
+        this.type = modifier.type;
+        this.options = modifier?.options || null;
+    }
+}
+
+export class Schema {
+    public modifiers: Array<ModifierSchema>
+    constructor(schema) {
+        this.modifiers = schema.modifiers;
+    }
+}
+
 export class Annotator {
     //
     public annotations: { [key: number]: TimelineAnnotationState } = {}
@@ -65,13 +86,13 @@ export class Annotator {
     public timeline: timeline.Timeline;
     public table: table.Table;
     public media: media.Media;
+    public schema: Schema;
 
-    //
 
     //
     public element: HTMLDivElement;
 
-    constructor(element: HTMLDivElement, config: any = {}) {
+    constructor(element: HTMLDivElement, start: number, end: number, config: any = {}) {
         // <div>
         //   <div>
         //     <div class="medi"></div>
@@ -93,7 +114,8 @@ export class Annotator {
         const timelineContainer = document.createElement("div");
         this.element.appendChild(timelineContainer);
 
-        this.timeline = new timeline.Timeline(this, timelineContainer, config?.timeline || {});
+        this.schema = new Schema(config?.schema || {});
+        this.timeline = new timeline.Timeline(this, timelineContainer, start, end, config?.timeline || {});
         this.media = new media.Video(topContainer, config);
         this.table = new table.TabulatorTable(this, topContainer);
         this.historyHandler = new HistoryHandler();
@@ -109,12 +131,14 @@ export class Annotator {
         this.timeline.addEventListener("updateTimelineAnnotation", (newState: TimelineAnnotationState, oldState: TimelineAnnotationState, tracking: boolean) => this.updateTimelineAnnotation(newState, oldState, tracking));
         this.timeline.addEventListener("updateTime", (timeMs: number) => this.media.updateTime(timeMs));
         this.table.addEventListener("selectTimelineAnnotation", (state: TimelineAnnotationState) => this.selectTimelineAnnotation(state));
+        this.table.addEventListener("deselectTimelineAnnotation", (state: TimelineAnnotationState) => this.deselectTimelineAnnotation(state));
         this.table.addEventListener("updateTimelineAnnotation", (state: TimelineAnnotationState) => this.updateTimelineAnnotation(state, this.timeline.annotations[state.id].state, true));
 
         this.timeline.addEventListener("deleteChannel", (state: ChannelState) => this.deleteChannel(state));
         this.timeline.addEventListener("createChannel", (state: ChannelState) => this.createChannel(state));
 
         this.media.addEventListener("media.timeupdate", (event) => this.timeline.timeUpdate(event.timeMs));
+        this.media.addEventListener("media.resize", (entry) => this.table.resize(entry.contentRect.height));
     }
 
     createChannel(state: ChannelState, track = false) {
@@ -154,7 +178,12 @@ export class Annotator {
     }
 
     batchCreateTimelineAnnotations(states: Array<TimelineAnnotationState>) {
-        states.forEach(state => this.timeline.createTimelineAnnotation(state));
+        states.forEach(state => {
+            state.modifiers.forEach(modifier => {
+                state[modifier.key] = modifier.value;
+            });
+            this.timeline.createTimelineAnnotation(state);
+        });
         this.table.batchCreateTimelineAnnotation(states);
     }
 
@@ -220,6 +249,12 @@ export class Annotator {
             this.table.deleteTimelineAnnotation(newState);
         }
     }
+    deleteSelectedAnnotations() {
+        console.log(this.timeline.selectionGroup.annotations)
+        this.timeline
+            .selectionGroup
+            .forEach((annotation) => this.timeline.dispatch("deleteTimelineAnnotation", annotation.state))
+    }
 
     selectTimelineAnnotation(state: TimelineAnnotationState) {
         this.timeline.selectTimelineAnnotation(state);
@@ -229,23 +264,35 @@ export class Annotator {
         this.timeline.deselectTimelineAnnotation(state);
         this.table.deselectTimelineAnnotation(state);
     }
+    deselectAll() {
+        this.timeline.selectionGroup.map(x=>x).forEach(annotation => {
+            this.timeline.deselectTimelineAnnotation(annotation.state);
+            this.table.deselectTimelineAnnotation(annotation.state);
+        });
+    }
 
-    playpause() {}
+    playpause() {
+        this.media.playpause();
+    }
 
-    stepForward() {}
-    stepBackward() {}
+    stepForward() {this.media.stepForward(1);}
+    stepBackward() {this.media.stepBackward(1);}
 
-    undo() {console.log(this.historyHandler.undoStack); this.historyHandler.undo()}
+    updateTime(timeMs: number) {
+        this.media.updateTime(timeMs);
+    }
+
+    undo() {this.historyHandler.undo()}
     redo() {this.historyHandler.redo()}
 
-    jsonDump() {
+    json() {
         const data = {
             media: this.media.state,
             timeline: {
-                startTime: this.timeline.xscale.domain[0],
-                endTime: this.timeline.xscale.domain[1],
+                startTime: this.timeline.xscale.range[0],
+                endTime: this.timeline.xscale.range[1],
                 channels: this.timeline.channels.map(channel => channel.state),
-                timelineAnnotations: Object.values(this.annotations)
+                timelineAnnotations: Object.values(this.timeline.annotations).map(a => a.json())
             },
         };
         return data
@@ -257,4 +304,5 @@ export class Annotator {
         state.timeline.channels.forEach(channel => this.createChannel(channel));
         this.batchCreateTimelineAnnotations(state.timeline.timelineAnnotations);
     }
+
 }

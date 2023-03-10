@@ -5,13 +5,13 @@
         "sourceMap": true,
         "target": "es2015",
         "module": "ESNext",
-
+    
         // Rules for your code
         "strict": true,
-        "noImplicitAny": true,
+        "noImplicitAny": false,
         "noImplicitReturns": true,
-        //"noUnusedParameters": true,
-        //"noUnusedLocals": true,
+        "noUnusedParameters": false,
+        "noUnusedLocals": false,
         "noFallthroughCasesInSwitch": true,
         "noImplicitOverride": true,
 

@@ -2,9 +2,11 @@ import * as state from './state';
 import { Annotator } from './annotator';
 
 import { CellComponent, RowComponent, TabulatorFull as Tabulator } from 'tabulator-tables';
+import { ModifierFlags } from 'typescript';
 
 interface TableEvents {
     "selectTimelineAnnotation": Array<(state: state.TimelineAnnotationState) => void>
+    "deselectTimelineAnnotation": Array<(state: state.TimelineAnnotationState) => void>
     "updateTimelineAnnotation": Array<(state: state.TimelineAnnotationState) => void>
 }
 
@@ -16,8 +18,10 @@ export interface Table {
     selectTimelineAnnotation(state: state.TimelineAnnotationState): void
     deselectTimelineAnnotation(state: state.TimelineAnnotationState): void
 
-    addEventListener(name: "selectTimelineAnnotation" | "updateTimelineAnnotation", handler: (param :any) => void): void
-    removeEventListener(name: "selectTimelineAnnotation" | "updateTimelineAnnotation", handler: (param :any) => void)
+    addEventListener(name: "selectTimelineAnnotation" | "updateTimelineAnnotation" | "deselectTimelineAnnotation", handler: (param :any) => void): void
+    removeEventListener(name: "selectTimelineAnnotation" | "updateTimelineAnnotation" | "deselectTimelineAnnotation", handler: (param :any) => void)
+
+    resize(height: number): void
 }
 
 //create Tabulator on DOM element with id "example-table"
@@ -29,47 +33,109 @@ export class TabulatorTable implements Table {
     public annotator: Annotator
     public table: Tabulator
     private events: TableEvents
+
     constructor(annotator: Annotator, rootElem: HTMLElement) {
         this.annotator = annotator;
         this.events = {
+            "deselectTimelineAnnotation": [],
             "selectTimelineAnnotation": [],
             "updateTimelineAnnotation": []
         }
 
         const tableElem = document.createElement("div");
+        tableElem.setAttribute("class", "beholder-table");
         rootElem.appendChild(tableElem);
 
         const config = {
-            height: 459,
+            height: tableElem.getBoundingClientRect().height,
             rowHeight: 40,
+            autoResize: true,
             data: [],
             layout: "fitDataStretch",
             scrollToRowPosition: "center",
             columns: [
                 { title: "Start Time", field: "startTime", formatter: timeFormatter },
                 { title: "End Time", field: "endTime", formatter: timeFormatter },
-                { title: "Channel", field: "channel",  headerFilter: "list", headerFilterParams:{valuesLookup:true, clearable:true}},
-                { title: "value", field: "value", editor: "input", headerFilter: true, hozAlign: "center" },
-            ],
+                { title: "Channel", field: "channel",  headerFilter: "input"},
+                { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "center" },
+            ]
         };
+        this.annotator.schema.modifiers.forEach(modifier => {
+            const columnConfig = {
+                title: modifier.name,
+                field: modifier.key,
+                editor: modifier.type,
+                editorParams: {},
+                headerFilter: "input"
+            } 
+            if (modifier.options !== null) {
+                columnConfig.editorParams["values"] = modifier.options;
+                columnConfig.editorParams["autocomplete"] = true;
+                columnConfig.editorParams["freetext"] = true;
+            }
+            // @ts-ignore
+            config.columns.push(columnConfig);
+        });
+
         // @ts-ignore
         this.table = new Tabulator(tableElem, config);
 
         this._bindEvents();
+
+        setTimeout(() => {
+            this.resize(this.table.element.getBoundingClientRect().height);
+            this.table.setSort([
+                {column:"startTime", dir:"asc"}, //sort by this first
+            ])
+        }, 3000);
     }
 
     _bindEvents() {
+        this.table.on("cellEditing", (cell: CellComponent) => this.cellEditing(cell));
         this.table.on("cellEdited", (cell: CellComponent) => this.cellEdited(cell));
         this.table.on("rowClick", (event: UIEvent, row: RowComponent) => this.rowClicked(event, row));
+
+        this.table.element.addEventListener("keypress", (event) => {
+		    if (event.key === "Enter") {
+                this.table.navigateDown();
+            }
+		    if (event.key === " ") {
+                event.stopPropagation();
+            }
+        });
+    }
+
+    resize(height: number) {
+        if (this.table.element.parentElement === null) return;
+        this.table.setHeight(height - 10);
+    }
+
+    cellEditing(cell: CellComponent) {
     }
 
     cellEdited(cell: CellComponent) {
         const data = cell.getData();
+        this.annotator.schema.modifiers.forEach(modifier => {
+            // @ts-ignore
+            const amodifier = data.modifiers.find(m => m.key == modifier.key);
+            if (amodifier === undefined) {
+                // @ts-ignore
+                data.modifiers.push({
+                    // @ts-ignore
+                    "id": data.modifiers.length == 0 ? 0 : Math.max(...data.modifiers.map(m => m.id)) + 1,
+                    "key": modifier.key,
+                    "value": data[modifier.key]
+                });
+            } else {
+                amodifier[modifier.key] = data[modifier.key];
+            }
+        });
         // @ts-ignore
         this.events.updateTimelineAnnotation.forEach(f => f(data));
     }
 
     rowClicked(event: UIEvent, row: RowComponent) {
+        this.annotator.timeline.selectionGroup.forEach(annotation => this.events.deselectTimelineAnnotation.forEach(f => f(annotation.state)));
         this.events.selectTimelineAnnotation.forEach(f => f(row.getData()));
     }
 

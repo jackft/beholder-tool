@@ -2,9 +2,9 @@
 
 <head>
 	<title>Pixi Hotwire</title>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-	<link href="https://unpkg.com/tabulator-tables/dist/css/tabulator.min.css" rel="stylesheet">
 	<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+	<link href="https://unpkg.com/tabulator-tables@5.4.4/dist/css/tabulator.min.css" rel="stylesheet">
 	<meta id="viewport" name="viewport"
 		content="width=device-width, minimum-scale=1.0, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
 	<meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,7 +23,13 @@
 			background: #000000;
 		}
 
-		        .beholder-media {
+		.beholder-table {
+            resize: horizontal;
+            overflow: hidden;
+		}
+
+		.beholder-media {
+			width: 25%;
             resize: horizontal;
             overflow: hidden;
         }
@@ -69,9 +75,15 @@
 			display: flex;
 		}
 
+		.beholder-ruler-panel {
+			display: flex;
+			border-top: 1px solid #515151;
+			border-right: 1px dashed #515151;
+			box-sizing: border-box;
+		}
 		.beholder-channel-panel {
 			resize: vertical;
-			overflow: auto;
+			overflow: hidden;
 			display: flex;
 			border-top: 1px solid #515151;
 			border-right: 1px dashed #515151;
@@ -97,7 +109,11 @@
 			  border-radius: 0;
 			}
 		body {
-			margin-top: 10px
+			margin-top: 10px;
+		}
+
+		.tabulator-header-filter > input {
+			height: 50% !important;
 		}
 	</style>
 
@@ -105,11 +121,69 @@
 
 <body>
 	<noscript>Please enable JavaScript in your web browser to view this page.</noscript>
-	<div id="controller" style="margin: auto; max-width: 2000px; border: solid black 1px;">
-		<div id="container" style="width: 1000px"></div>
-		<div id="example-table" style="width: 400px"></div>
+	<div id="controller" style="margin: auto; max-width: 2000px; width: 90%; border: solid black 1px;">
 	</div>
 	<button id="download">save</button>
+	<script>
+		let controller;
+		setTimeout(() => {
+		const config = {
+		    timeline: {
+		        backgroundColor: 0x1e1e1e
+		    }
+		}
+
+
+		fetch("./010326.json")
+		    .then((response) => response.json())
+		    .then((json) => {
+				config.schema = json?.schema || {};
+				controller = new beholder.Annotator(document.getElementById("controller"), json.timeline.startTime, json.timeline.endTime, config);
+		        controller.readState(json);
+				//json.timeline.channels.slice(0,2).forEach(c => controller.createChannel(c));
+				//controller.media.readState(json.media);
+		    });
+
+		document.addEventListener("keypress", event => {
+		    console.log(event.key);
+			if (controller.textediting) return;
+		    if (event.key === "z") {
+		        controller.undo();
+		    }
+		    if (event.key === "y") {
+		        controller.redo();
+		    }
+		    if (event.key === " ") {
+		        event.preventDefault();
+		        controller.playpause();
+		    }
+		    if (event.key === "Delete") {
+				controller.deleteSelectedAnnotations();
+		    }
+		    if (event.key === "Escape") {
+				controller.deselectAll();
+		    }
+		});
+		document.addEventListener("keydown", event => {
+			if (controller.textediting) return;
+		    if (event.key === "ArrowRight") {
+		        controller.stepForward();
+		    }
+		    if (event.key === "ArrowLeft") {
+		        controller.stepForward();
+		    }
+			console.log(event.key);
+		});
+		document.querySelector("#download")?.addEventListener("click", (event) => {
+		    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(controller.json()));
+		    const dlAnchorElem = document.createElement("a");
+		    dlAnchorElem.setAttribute("href",     dataStr     );
+		    dlAnchorElem.setAttribute("download", "annotation.json");
+		    dlAnchorElem.click();
+		});
+		}, 1000);
+
+		</script>
 </body>
 
 </html>

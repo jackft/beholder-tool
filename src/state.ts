@@ -24,14 +24,13 @@ export interface ChannelState {
     id: number
     parentId: number | null
     name: string
-    allowedAnnotationIds: Array<number> | null
     showBackground?: boolean
     background?: string
 }
 
 export interface AnnotationModifierState {
     id: number
-    label: string
+    key: string
     value: string
 }
 

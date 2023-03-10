@@ -9,13 +9,14 @@ import { TimelineAnnotationState, ChannelState, TimelineState } from './state';
 import * as base from './base';
 import { Scale, LinearScale } from './scales';
 import { deepCopy } from './utils';
+import { groupD8 } from 'pixi.js';
 
 const annotationColor = 0xc1c1c1;
 const annotationHoverColor = 0xe1e1e1;
 const annotationSelectColor = 0xf1f1f1;
 const annotationBarColor = 0x2585cc;
 const annotationBarSelectColor = 0x00ff00;
-const channelPanelWidth = 100;
+const channelPanelWidth = 150;
 const channelTreeWidth = 20;
 const summaryHeight = 50;
 const channelHeight = 25;
@@ -31,7 +32,7 @@ enum MouseButton {
 }
 
 class TimelineInteractionGroup {
-    private annotations: Array<base.TimelineAnnotation>
+    public annotations: Array<base.TimelineAnnotation>
 
     constructor() {
         this.annotations = [];
@@ -45,12 +46,20 @@ class TimelineInteractionGroup {
         this.annotations.forEach(annotation => annotation.update(track));
         return this;
     }
+    contains(annotation: base.TimelineAnnotation): boolean {
+        const result = this.annotations.filter(
+            _annotation => _annotation.state.id === annotation.state.id
+        );
+        return result.length > 0;
+    }
     //
     add(annotation: base.TimelineAnnotation | Array<base.TimelineAnnotation>) {
         if (Array.isArray(annotation)) {
-            this.annotations = this.annotations.concat(annotation)
+            annotation.forEach(_annotation => this.add(_annotation));
         } else {
-            this.annotations.push(annotation);
+            if (!this.contains(annotation)) {
+                this.annotations.push(annotation);
+            }
         }
         return this;
     }
@@ -73,6 +82,9 @@ class TimelineInteractionGroup {
     forEach(func: (value: base.TimelineAnnotation) => void): TimelineInteractionGroup {
         this.annotations.forEach(func);
         return this;
+    }
+    map(func: (value: base.TimelineAnnotation) => base.TimelineAnnotation): TimelineInteractionGroup {
+        return new TimelineInteractionGroup().set(this.annotations.map(func));
     }
     //
     setChannel(channelId: number) {
@@ -177,6 +189,8 @@ interface TimelineLike {
     rightInView(): number
     widthInView(): number
     zoomFactor(): number
+
+    resizeChannel(): void
 }
 
 interface TimelinOptions {
@@ -219,6 +233,7 @@ export class Timeline implements TimelineLike {
     private channelIdCounter: number;
     private annotationIdCounter: number;
     private insertEnabled: boolean = false;
+    private multiSelectEnabled: boolean = false;
 
     private viewportTrackingCursor: boolean = false;
 
@@ -252,12 +267,12 @@ export class Timeline implements TimelineLike {
 
     private cullDirty: boolean;
 
-    constructor(annotator: Annotator, container: HTMLDivElement, opts: TimelinOptions) {
+    constructor(annotator: Annotator, container: HTMLDivElement, start: number, end: number, opts: TimelinOptions) {
         this.annotator = annotator;
         const mainTimelineWidth = container.getBoundingClientRect().width - channelTreeWidth - channelPanelWidth;
         const mainTimelineHeight = 150;
 
-        this.xscale = new LinearScale([0, mainTimelineWidth], [0, 2392800]);
+        this.xscale = new LinearScale([0, mainTimelineWidth], [start, end]);
         // helper attributes
 
         this.events = {
@@ -354,10 +369,10 @@ export class Timeline implements TimelineLike {
             worldHeight: mainTimelineHeight,
             interaction: this.timelineApp.renderer.plugins.interaction // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
         }).drag({ direction: 'x', mouseButtons: 'all' })
-            .pinch({ axis: 'x' })
-            .wheel({ axis: 'x' })
-            .clamp({ direction: 'x' })
-            .clampZoom({ minScale: 1 });
+          .pinch({ axis: 'x' })
+          .wheel({ axis: 'x' })
+          .clamp({ direction: 'x' })
+          .clampZoom({ minScale: 1 });
 
         this.annotationEndContainer = new PIXI.ParticleContainer(100000, {
             scale: true,
@@ -421,7 +436,7 @@ export class Timeline implements TimelineLike {
     }
 
     readState(state: TimelineState) {
-        this.xscale.range = [state.startTime, state.endTime];
+        this.xscale = new LinearScale(this.xscale.domain, [state.startTime, state.endTime]);
         this.ruler.draw();
     }
 
@@ -446,7 +461,7 @@ export class Timeline implements TimelineLike {
         channel.delete();
         const idx = this.channels.findIndex(x => x.state.id === channel.state.id);
         this.channels.splice(idx, 1);
-        this.resizeChannel(null);
+        this.resizeChannel();
     }
     createTimelineAnnotation(state: TimelineAnnotationState) {
         const channel = this.findChannelById(state.channelId);
@@ -497,6 +512,7 @@ export class Timeline implements TimelineLike {
             .select();
     }
     deselectTimelineAnnotation(state: TimelineAnnotationState) {
+        console.log("deselecting", state);
         this.summary.deselectTimelineAnnotation(state);
         this.selectionGroup.remove(this.annotations[state.id])
         this.annotations[state.id].deselect();
@@ -565,7 +581,7 @@ export class Timeline implements TimelineLike {
     }
 
 
-    resizeChannel(channel: Channel | null) {
+    resizeChannel() {
         let y = this.ruler.bottom;
         for (let _channel of this.channels) {
             _channel.y = y
@@ -633,10 +649,16 @@ export class Timeline implements TimelineLike {
                 this.insertEnabled = true;
                 this._changeCursor(-1, -1);
             }
+            if (event.key === "Shift" || event.ctrlKey) {
+                this.multiSelectEnabled = true;
+            }
         });
         document.addEventListener("keyup", (event) => {
             if (event.key === "Control") {
                 this.insertEnabled = false;
+            }
+            if (event.key === "Shift" || event.ctrlKey) {
+                this.multiSelectEnabled = false;
             }
         });
     }
@@ -747,10 +769,22 @@ export class Timeline implements TimelineLike {
         this.viewport.drag(undefined);
     }
     _handlePointerDownSelectTimelineAnnotation(x: number, y: number, annotations: Array<TimelineAnnotation>) {
-        if (annotations.length === 0) return;
-        this.selectionGroup.forEach((annotation) => this.dispatch("deselectTimelineAnnotation", annotation.state))
-            .clear();
-        this.draggingGroup.add(annotations[0])
+        if (annotations.length === 0) {
+            this.selectionGroup.map(x=>x).forEach((annotation) => this.dispatch("deselectTimelineAnnotation", annotation.state))
+                .clear();
+            this.draggingGroup.map(x=>x).forEach((annotation) => this.dispatch("deselectTimelineAnnotation", annotation.state))
+                .clear();
+            return;
+        };
+        if (!this.multiSelectEnabled) {
+            this.selectionGroup.map(x=>x).forEach((annotation) => this.dispatch("deselectTimelineAnnotation", annotation.state))
+                .clear();
+            this.draggingGroup.map(x=>x).forEach((annotation) => this.dispatch("deselectTimelineAnnotation", annotation.state))
+                .clear();
+        }
+        this.draggingGroup
+            .set(this.selectionGroup.annotations)
+            .add(annotations[0])
             .select()
             .forEach((annotation) => this.dispatch("selectTimelineAnnotation", annotation.state))
             .mouseDown(x, y);
@@ -784,16 +818,17 @@ export class Timeline implements TimelineLike {
         const timeMs = this.pixel2time(x);
         const channel = this.findChannel(x, y);
         if (channel === undefined) return;
-        this.draggingGroup.filter((annotation) => annotation.draggedEnd)
-            .moveEnd(timeMs);
-        this.draggingGroup.filter((annotation) => annotation.draggedStart)
-            .moveStart(timeMs);
-        this.draggingGroup.filter((annotation) => annotation.dragged && !(annotation.draggedStart || annotation.draggedEnd))
-            .setChannel(channel.state.id)
-            .shift(diffMs);
+        if (this.draggingGroup.filter((annotation) => annotation.draggedEnd).size() > 0) {
+            this.draggingGroup.moveEnd(timeMs);
+        } else if (this.draggingGroup.filter((annotation) => annotation.draggedStart).size() > 0) {
+            this.draggingGroup.moveStart(timeMs);
+        } else {
+            this.draggingGroup.filter((annotation) => annotation.dragged && !(annotation.draggedStart || annotation.draggedEnd))
+                .setChannel(channel.state.id)
+                .shift(diffMs);
+        }
         this.draggingGroup.update(false)
             .draw();
-        console.log(this.newTimelineAnnotationGroup.size());
         this.newTimelineAnnotationGroup.moveEnd(timeMs)
             .update(false)
             .draw();
@@ -821,6 +856,7 @@ export class Timeline implements TimelineLike {
         this.mouseDownY = -1;
     }
     stopDrag() {
+        this.selectionGroup.set(this.draggingGroup.annotations);
         this.draggingGroup
             .update(true)
             .disableDrag()
@@ -946,6 +982,8 @@ export class Summary implements TimelineLike {
         opts.width = this.timeline.timelineApp.view.getBoundingClientRect().width;
         opts.height = summaryHeight;
 
+        const renderer = new PIXI.Renderer();
+
         this.app = new PIXI.Application(opts);
         //
         this.indexCursor = new Cursor(this, 0, 0xff0000);
@@ -1058,6 +1096,11 @@ export class Summary implements TimelineLike {
         this.window.x = this.timeline.viewport.left;
         this.window.width = Math.max(1, this.timeline.widthInView());
     }
+    render() {
+        
+    }
+
+    resizeChannel() {}
 
     //-------------------------------------------------------------------------
     // Events
@@ -1169,10 +1212,60 @@ const timescales = [
     new LinearScale([0, 1000], [0, 1 / 600], { name: "10minutes", warn: false }),
 ];
 
+class RulerPanel {
+    //
+    public ruler: Ruler
+    public rootElem: HTMLDivElement
+    //
+    private resizeObserver: ResizeObserver
+    constructor(ruler: Ruler) {
+        this.ruler = ruler
+
+        // <div class="beholder-channel-panel">
+        //   <div class="beholder-ruler-buttons">
+        //   </div>
+        //   <div class="beholder-ruler-names">
+        //   </div>
+        // </div>
+
+        this.rootElem = document.createElement("div");
+        this.rootElem.setAttribute("class", "beholder-ruler-panel");
+        this.rootElem.style.height = `${this.height()}px`;
+        this.rootElem.style.width = `${channelPanelWidth}px`;
+        this.rootElem.style.background = `#1e1e1e`;
+        this.rootElem.style.border = `1 black`;
+
+        this.rootElem.style.setProperty("order", `${-1}`)
+
+        const buttonsDiv = document.createElement("div");
+        buttonsDiv.setAttribute("class", "beholder-channel-buttons");
+        this.rootElem.appendChild(buttonsDiv);
+
+        const channelName = document.createElement("div");
+        channelName.setAttribute("class", "beholder-channel-names");
+        this.rootElem.appendChild(channelName);
+
+        this.resizeObserver = new ResizeObserver((entries) => {
+            this.ruler.height = this.rootElem.getBoundingClientRect().height;
+            this.ruler.timeline.resizeChannel();
+        });
+        this.resizeObserver.observe(this.rootElem);
+
+        this._bindEvents();
+    }
+
+    _bindEvents() {
+    }
+
+    height() { return this.ruler.height }
+
+}
+
 export class Ruler {
     // definitional attributes
     public timeline: TimelineLike
     public scale: Scale
+    public panel: RulerPanel | null = null;
     // helper attributes
     public y: number
     public height: number
@@ -1186,7 +1279,6 @@ export class Ruler {
     private border: PIXI.Graphics
     public ticks: Array<PIXI.Sprite>
     public labels: Array<PIXI.Text>
-    public panel: HTMLDivElement | null = null
 
     constructor(timeline: TimelineLike) {
         this.timeline = timeline;
@@ -1195,7 +1287,7 @@ export class Ruler {
         this.labels = [];
         //
         this.top = this.y = 0;
-        this.height = 25;
+        this.height = channelHeight;
         this.bottom = this.y + this.height;
         this.rightMostTick = this.leftMostTick = PIXI.Sprite.from(PIXI.Texture.WHITE);
 
@@ -1216,18 +1308,8 @@ export class Ruler {
         this.border = new PIXI.Graphics();
 
         if (this.timeline instanceof Timeline) {
-            this.panel = document.createElement("div");
-            this.panel.setAttribute("class", "beholder-channel-panel");
-            this.panel.style.height = `${this.height}px`;
-            this.panel.style.width = `100px`;
-            this.panel.style.background = `blue`;
-            this.panel.style.border = `1 black`;
-            this.panel.addEventListener("resize", (event) => {
-                if (this.panel !== null) {
-                    this.height = this.panel.getBoundingClientRect().height;
-                    this.draw();
-                }
-            })
+            this.panel = new RulerPanel(this);
+            this.timeline.channelPanel.appendChild(this.panel.rootElem);
         }
 
         this.initView();
@@ -1267,10 +1349,6 @@ export class Ruler {
 
     // view
     initView() {
-        //this.timeline.channelContainer.addChild(this.border);
-        if (this.timeline instanceof Timeline && this.panel !== null) {
-            this.timeline.channelPanel.appendChild(this.panel);
-        }
         this.zoomScale(1);
     }
 
@@ -1344,7 +1422,7 @@ export class Ruler {
 
     zoomScale(xScale: number) {
         const scale = this.findBestScale();
-        if (!(scale.name === this.scale.name && this.leftMostTick.x <= this.timeline.leftInView() && this.timeline.rightInView() <= this.rightMostTick.x)) {
+        if (!(scale.name === this.scale.name && this.timeline.leftInView() <= this.leftMostTick.x && this.timeline.rightInView() <= this.rightMostTick.x)) {
             this.scale = scale;
             this.draw();
         }
@@ -1410,7 +1488,7 @@ class ChannelPanel {
 
         this.resizeObserver = new ResizeObserver((entries) => {
             this.channel.height = this.rootElem.getBoundingClientRect().height;
-            this.channel.timeline.resizeChannel(this.channel);
+            this.channel.timeline.resizeChannel();
         });
         this.resizeObserver.observe(this.rootElem);
 
@@ -1449,7 +1527,7 @@ class ChannelPanel {
     minimize() {
         this.channel.height = 10;
         this.rootElem.style.height = `${this.channel.height}px`;
-        this.channel.timeline.resizeChannel(this.channel);
+        this.channel.timeline.resizeChannel();
         this.minimized = true;
         this.minmaxButton.innerHTML = "+";
 
@@ -1460,7 +1538,7 @@ class ChannelPanel {
     maximize() {
         this.channel.height = (this.oldHeight === -1) ? 50 : this.oldHeight;
         this.rootElem.style.height = `${this.channel.height}px`;
-        this.channel.timeline.resizeChannel(this.channel);
+        this.channel.timeline.resizeChannel();
         this.minimized = false;
         this.minmaxButton.innerHTML = "-";
 
@@ -1624,7 +1702,6 @@ export class Channel {
         this.backgroundCanvas = document.createElement("canvas");
         this.backgroundCanvas.width = 4096;
         this.backgroundCanvas.height = this.backgroundImg.height;
-        this.backgroundScale = new LinearScale([0, this.backgroundImg.width], this.timeline.xscale.domain);
         this.backgroundSprite.y = this.top();
         this.drawBackground();
     }
@@ -1632,12 +1709,12 @@ export class Channel {
         if (this.state.background === null) return;
         if (this.backgroundCanvas === null) return;
         if (this.backgroundImg === null) return;
-        if (this.backgroundScale === null) return;
         if (this.backgroundSprite === null) return;
         this.backgroundCanvas.height = this.backgroundImg.height;
         this.backgroundSprite.height = this.height;
         this.backgroundSprite.y = this.top();
         const ctx = this.backgroundCanvas.getContext("2d");
+        this.backgroundScale = new LinearScale([0, this.backgroundImg.width], this.timeline.xscale.domain)
         // @ts-ignore
         ctx.imageSmoothingEnabled = false;
         const width = this.backgroundImg.width;
@@ -1927,7 +2004,6 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         } else {
             this.sprite.tint = annotationColor;
         }
-
         return this;
     }
     textVisibility() {
@@ -1942,7 +2018,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
             return;
         }
         this.text.text = numChars < this.state.value.length
-            ? this.state.value.slice(0, numChars) + ellipsis
+            ? [...this.state.value].slice(0, numChars).join("") + ellipsis
             : this.state.value;
         this.text.visible = true;
     }
@@ -1975,5 +2051,13 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.right.tint = annotationBarColor;
         this.selected = false;
         return this;
+    }
+
+    json() {
+        const state = deepCopy(this.state);
+        this.timeline.annotator.schema.modifiers.forEach(modifier => {
+            delete state[modifier.key];
+        });
+        return state;
     }
 }

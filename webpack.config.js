@@ -7,12 +7,16 @@ const TerserPlugin = require('terser-webpack-plugin');
 module.exports = (env, argv) => {
     return ({
         stats: 'minimal', // Keep console output easy to read.
-        entry: './src/index.ts', // Your program entry point
+        entry: {
+            'beholder': './src/index.ts',
+            'beholder.min': './src/index.ts'
+        },
 
         // Your build destination
         output: {
             path: path.resolve(__dirname, 'dist'),
-            filename: 'bundle.js'
+            filename: '[name].js',
+            library: 'beholder'
         },
 
         // Config for your testing server
