@@ -1,8 +1,17 @@
-import { cache } from "webpack";
-
 export function inJestTest() {
     return typeof process !== "undefined" && process.env.JEST_WORKER_ID !== undefined;
 }
+
+export function deepCopy(o: Object) {return JSON.parse(JSON.stringify(o))}
+
+export function pruneKeys(object: Object, keySubSet: Array<PropertyKey>) {
+    return keySubSet.reduce((accObj, key) => {
+        if (object.hasOwnProperty(key)) {
+            accObj[key] = object[key];
+        }
+        return accObj;
+    }, {});
+};
 
 export class CachedLoader {
 

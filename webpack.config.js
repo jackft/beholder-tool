@@ -1,48 +1,88 @@
+const webpack = require('webpack');
 const path = require('path');
-const TerserPlugin = require("terser-webpack-plugin");
-const { CheckerPlugin } = require('awesome-typescript-loader')
+const CopyPlugin = require('copy-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+
+module.exports = (env, argv) => {
+    return ({
+        stats: 'minimal', // Keep console output easy to read.
+        entry: {
+            'beholder': './src/index.ts',
+            'beholder.min': './src/index.ts'
+        },
+
+        // Your build destination
+        output: {
+            path: path.resolve(__dirname, 'dist'),
+            filename: '[name].js',
+            library: 'beholder'
+        },
+
+        // Config for your testing server
+        devServer: {
+            compress: true,
+            static: false,
+            client: {
+                logging: "warn",
+                overlay: {
+                    errors: true,
+                    warnings: false,
+                },
+                progress: true,
+            },
+            port: 1234, host: '0.0.0.0'
+        },
+
+        // Web games are bigger than pages, disable the warnings that our game is too big.
+        performance: { hints: false },
+
+        // Enable sourcemaps while debugging
+        devtool: argv.mode === 'development' ? 'eval-source-map' : undefined,
+
+        // Minify the code when making a final build
+        optimization: {
+            minimize: argv.mode === 'production',
+            minimizer: [new TerserPlugin({
+                terserOptions: {
+                    ecma: 6,
+                    compress: { drop_console: true },
+                    output: { comments: false, beautify: false },
+                },
+            })],
+        },
 
 
+        // Explain webpack how to do Typescript
+        module: {
+            rules: [
+                {
+                    test: /\.ts(x)?$/,
+                    loader: 'ts-loader',
+                    exclude: /node_modules/
+                }
+            ]
+        },
+        resolve: {
+            extensions: [
+                '.tsx',
+                '.ts',
+                '.js'
+            ]
+        },
 
-module.exports = {
-  entry: {
-    'psych-coder': './src/index.ts',
-    'psych-coder.min': './src/index.ts'
-  },
-  mode: "development",
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: '[name].js',
-    libraryTarget: 'umd',
-    library: 'psychCoder',
-    umdNamedDefine: true
-  },
-  resolve: {
-    extensions: ['.ts', '.tsx', '.js']
-  },
-  devtool: 'source-map',
-  optimization: {
-    minimize: false,
-    minimizer: [new TerserPlugin()]
-  },
-  plugins: [
-      new CheckerPlugin()
-  ],
-  externals: [{
-      "formiojs/Formio": {
-        commonjs: "formiojs/Formio"
-      },
-      "jquery/jQuery": {
-        commonjs: "jquery/jQuery"
-      }
-    }
-  ],
-  module: {
-    rules: [
-      {
-        test: /\.tsx?$/,
-        loader: 'awesome-typescript-loader'
-      }
-    ]
-  }
+        plugins: [
+            // Copy our static assets to the final build
+            new CopyPlugin({
+                patterns: [{ from: 'static/' }],
+            }),
+
+            // Make an index.html from the template
+            new HtmlWebpackPlugin({
+                template: 'src/index.ejs',
+                hash: true,
+                minify: false
+            })
+        ]
+    });
 }

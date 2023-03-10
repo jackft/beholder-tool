@@ -2,9 +2,10 @@ import { MediaState } from './state';
 import { inJestTest } from './utils';
 
 export interface Media {
-    rootElem: HTMLElement
+    mediaElem: HTMLElement
     element: HTMLElement
     state: MediaState
+    readState(state: MediaState): void
     addEventListener(name, handler): void
     updateTime(timeMs: number): void
     height(): number
@@ -23,7 +24,7 @@ interface MediaEvents {
 }
 
 export class Video implements Media {
-    rootElem: HTMLElement
+    mediaElem: HTMLElement
     element: HTMLVideoElement = document.createElement("video")
     controls: HTMLDivElement = document.createElement("div")
     playpauseElem: HTMLButtonElement = document.createElement("button")
@@ -35,14 +36,16 @@ export class Video implements Media {
     frameElem: HTMLSpanElement = document.createElement("span")
     state: MediaState
     events: MediaEvents
-    framerate: number | null
-    frameDuration: number | null
-    frameOffset: number | null
+    framerate: number
+    frameDuration: number
+    frameOffset: number
     _time: number
     constructor(rootElem: HTMLElement, state: MediaState) {
-        this.rootElem = rootElem;
-        this.rootElem.appendChild(this.element);
-        this.rootElem.appendChild(this.controls);
+        this.mediaElem = document.createElement("div");
+        this.mediaElem.setAttribute("class", "beholder-media");
+        rootElem.appendChild(this.mediaElem);
+        this.mediaElem.appendChild(this.element);
+        this.mediaElem.appendChild(this.controls);
         this.state = state;
 
         this.events = {
@@ -50,7 +53,7 @@ export class Video implements Media {
             "media.timeupdate": []
         };
 
-        this.framerate = state.framerate;
+        this.framerate = state.framerate || 30;
         this.frameDuration = 1/this.framerate;
         this.frameOffset = 0.3 * this.frameDuration; // magic number. don't know why this works.
 
@@ -58,6 +61,14 @@ export class Video implements Media {
         this.initControls();
         this._time = this.element.currentTime;
         this.subscribeToEvents();
+    }
+
+    readState(state: MediaState) {
+        this.state = state;
+        this.element.src = state.src;
+        this.framerate = state.framerate || 30;
+        this.frameDuration = 1/this.framerate;
+        this.frameOffset = 0.3 * this.frameDuration; // magic number. don't know why this works.
     }
 
     initVideo() {
@@ -149,11 +160,11 @@ export class Video implements Media {
     subscribeToEvents() {
         if (inJestTest()) return;
         const mediaResizeObserver = new ResizeObserver(entries => {
-            entries.forEach(entry => {
+            entries.forEach(entry => { 
                 this.events["media.resize"].forEach(f => f(entry));
             });
         });
-        mediaResizeObserver.observe(this.rootElem);
+        mediaResizeObserver.observe(this.mediaElem);
 
         this.element.addEventListener("play", () => {this._onplay()});
         this.element.addEventListener("pause", () => {this._onpause()});
@@ -176,9 +187,9 @@ export class Video implements Media {
     }
 
     updateTime(timeMs: number) {
-        this.currentTime.innerText = `${new Date(timeMs * 1000).toISOString().slice(11,23)}`;
+        this.currentTime.innerText = `${new Date(timeMs).toISOString().slice(11,23)}`;
         this.frameElem.innerText = `${this._getFrame()}`;
-        this.element.currentTime = timeMs;
+        this.element.currentTime = timeMs/1000;
     }
 
     timeUpdate() {
@@ -189,7 +200,7 @@ export class Video implements Media {
     }
 
     height() {
-        return this.rootElem.getBoundingClientRect().height;
+        return this.mediaElem.getBoundingClientRect().height;
     }
 
     _watchForFrameUpdate() {
