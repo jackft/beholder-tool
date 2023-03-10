@@ -2,89 +2,46 @@
 /* Media                                                                      */
 /*----------------------------------------------------------------------------*/
 
+export interface State {
+    media: MediaState
+    timeline: TimelineState
+}
+
 export interface MediaState {
-    src: string,
+    src: string
     type: "video" | "image" | "audio"
     framerate: number | null
 }
 
-/*----------------------------------------------------------------------------*/
-/* Timeline                                                                   */
-/*----------------------------------------------------------------------------*/
-
-export interface ChannelState {
-    id: number,
-    parentId: number | null,
-    name: string,
-    allowedAnnotationIds: Array<number> | null,
-    waveforms?: {[key: number]: {uri: string, data: Object | null, points: number[] | null}},
-    showWaveform?: boolean
-    spectrogram?: string
-    showSpectrogram?: boolean
-}
-
 export interface TimelineState {
     channels: Array<ChannelState>
-    timelineAnnotations: Array<TimelineAnnotationState>
     startTime: number
     endTime: number
+    timelineAnnotations: Array<TimelineAnnotationState>
 }
 
-/*----------------------------------------------------------------------------*/
-/* Annotations                                                                */
-/*----------------------------------------------------------------------------*/
+export interface ChannelState {
+    id: number
+    parentId: number | null
+    name: string
+    showBackground?: boolean
+    background?: string
+}
 
 export interface AnnotationModifierState {
-    id: number,
-    label: string,
+    id: number
+    key: string
     value: string
 }
 
 export interface TimelineAnnotationState {
-    id: number,
-    channelId: number,
-    type: string,
-    value: string,
-    startFrame: number,
-    endFrame: number,
-    startTime: number,
-    endTime: number,
+    id: number
+    channelId: number
+    type: string
+    value: string
+    startFrame: number
+    endFrame: number
+    startTime: number
+    endTime: number
     modifiers: Array<AnnotationModifierState>
-}
-
-export interface ChannelAnnotationState {
-    id: number,
-    channelId: number,
-    label: string,
-    modifiers: Array<AnnotationModifierState>
-}
-
-/*----------------------------------------------------------------------------*/
-
-export interface State {
-    media: MediaState,
-    timeline: TimelineState | null,
-}
-
-export interface Layout {
-    cssGridRows: string,
-    cssGridCols: string,
-    timelineLayout?: [number, number, number, number],
-    tableLayout?: [number, number, number, number],
-    mediaLayout?: [number, number, number, number],
-    ruler?: boolean,
-    channelHeight?: number,
-    treeWidth?: number,
-
-    maxMediaInitWidth: number,
-    maxTimelineInitWidth: number,
-
-    table?: boolean
-}
-
-export interface Config {
-    state: State,
-    layout: Layout,
-    readonly?: boolean,
-    schema?: Object,
 }

@@ -13,6 +13,4 @@ lint:
 	npm run lint
 
 clean:
-	rm -rf bundles
-	rm -rf lib
-	rm -rf node_modules
+	rm -rf dist node_modules
