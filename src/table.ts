@@ -68,6 +68,9 @@ export class TabulatorTable implements Table {
                 editorParams: {},
                 headerFilter: "input"
             } 
+            if (modifier.editorParams !== null && modifier.editorParams !== undefined) {
+                columnConfig.editorParams = modifier.editorParams;
+            }
             if (modifier.options !== null) {
                 columnConfig.editorParams["values"] = modifier.options;
                 columnConfig.editorParams["autocomplete"] = true;

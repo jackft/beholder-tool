@@ -61,12 +61,14 @@ export class ModifierSchema {
     public name: string;
     public type: string;
     public options?: Array<string> | null;
+    public editorParams?: any | null;
 
     constructor(modifier) {
         this.key = modifier.key;
         this.name = modifier.name;
         this.type = modifier.type;
         this.options = modifier?.options || null;
+        this.editorParams = modifier?.editorParams || null;
     }
 }
 
