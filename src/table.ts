@@ -54,6 +54,7 @@ export class TabulatorTable implements Table {
             layout: "fitDataStretch",
             scrollToRowPosition: "center",
             columns: [
+                { title: "id", field: "id" },
                 { title: "Start Time", field: "startTime", formatter: timeFormatter },
                 { title: "End Time", field: "endTime", formatter: timeFormatter },
                 { title: "Channel", field: "channel",  headerFilter: "input"},
@@ -130,7 +131,7 @@ export class TabulatorTable implements Table {
                     "value": data[modifier.key]
                 });
             } else {
-                amodifier[modifier.key] = data[modifier.key];
+                amodifier["value"] = data[modifier.key];
             }
         });
         // @ts-ignore
