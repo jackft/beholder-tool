@@ -1551,7 +1551,7 @@ export class Channel {
     //
     public timeline: Timeline
     public state: ChannelState
-    private timelineAnnotationTree: IntervalTree<number>
+    public timelineAnnotationTree: IntervalTree<number>
     public panel: ChannelPanel
     public parent: Channel | undefined = undefined
 
@@ -1665,6 +1665,10 @@ export class Channel {
         return this.timelineAnnotationTree.search(x, x).map(id => this.timeline.annotations[id]);
     }
 
+    findTimelineAnnotationsInterval(s: number, e: number): TimelineAnnotation[] {
+        return this.timelineAnnotationTree.search(s, e).map(id => this.timeline.annotations[id]);
+    }
+
     // state
     insertAnnotation(state: TimelineAnnotationState): boolean {
         this.annotationIds.add(state.id);
@@ -1727,6 +1731,29 @@ export class Channel {
         this.backgroundSprite.x = this.timeline.leftInView();
         this.backgroundSprite.width = this.timeline.widthInView();
     }
+
+    overlapGroup(annotation: TimelineAnnotation) {
+        const maxIter = 50;
+        const epsilon = 1e-10
+        let start = this.timeline.time2pixel(annotation.state.startTime);
+        let end = this.timeline.time2pixel(annotation.state.endTime);
+        for (let i=0; i < maxIter; ++i) {
+            const annotations = this.findTimelineAnnotationsInterval(start+epsilon, end-epsilon);
+            const _start = this.timeline.time2pixel(
+                Math.min(...annotations.map(a => a.state.startTime))
+            );
+            const _end = this.timeline.time2pixel(
+                Math.max(...annotations.map(a => a.state.endTime))
+            );
+            if (start == _start && end == _end) {
+                break
+            }
+            start = _start;
+            end = _end;
+        }
+        return this.findTimelineAnnotationsInterval(start+epsilon, end-epsilon);
+    }
+
     //
     zoomPan() {
         this.drawBackground();
@@ -1951,13 +1978,23 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     // Helpers
     //-------------------------------------------------------------------------
     x() { return this.timeline.xscale.inv(this.state.startTime) }
-    y() { return this.sprite.y }
-    top() { return this.channel.top() + this.margin }
+    y() { 
+        return this.sprite.y;
+    }
+    top() { 
+        const overlapGroup = this.channel.overlapGroup(this);
+        const position = overlapGroup.findIndex(a => a.state.id == this.state.id, overlapGroup)
+        const offset = (this.channel.height/overlapGroup.length)*position;
+        return this.channel.top() + offset + this.margin;
+    }
     bottom() { return this.channel.bottom }
     middleX() { return this.start() + this.width() / 2 }
     middleY() { return this.y() + this.height() / 2 }
     width() { return this.end() - this.start() }
-    height() { return this.channel.height - 2 * this.margin }
+    height() { 
+        const overlapGroup = this.channel.overlapGroup(this);
+        return this.channel.height/overlapGroup.length - 2 * this.margin;
+    }
     start() { return this.timeline.xscale.inv(this.state.startTime); }
     end() { return this.timeline.xscale.inv(this.state.endTime); }
     leftBarPosition() { return this.start() }
