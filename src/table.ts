@@ -48,17 +48,19 @@ export class TabulatorTable implements Table {
 
         const config = {
             height: tableElem.getBoundingClientRect().height,
-            rowHeight: 40,
+            rowHeight: 30,
             autoResize: true,
             data: [],
-            layout: "fitDataStretch",
+            clipboard: true,
+            clipboardPasteAction: "replace",
+            responsiveLayout:"hide",
             scrollToRowPosition: "center",
             columns: [
                 { title: "id", field: "id" },
                 { title: "Start Time", field: "startTime", formatter: timeFormatter },
                 { title: "End Time", field: "endTime", formatter: timeFormatter },
                 { title: "Channel", field: "channel",  headerFilter: "input"},
-                { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "center" },
+                { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "center", width: 300},
             ]
         };
         this.annotator.schema.modifiers.forEach(modifier => {
@@ -106,11 +108,20 @@ export class TabulatorTable implements Table {
 		    if (event.key === " ") {
                 event.stopPropagation();
             }
+		    if (event.key === "UpArrow") {
+                event.stopPropagation();
+                this.table.navigatePrev();
+            }
+		    if (event.key === "DownArrow") {
+                event.stopPropagation();
+                this.table.navigateNext();
+            }
         });
     }
 
     resize(height: number) {
         if (this.table.element.parentElement === null) return;
+        if (this.table.columnManager.getElement() === null) return;
         this.table.setHeight(height - 10);
     }
 
@@ -139,7 +150,11 @@ export class TabulatorTable implements Table {
     }
 
     rowClicked(event: UIEvent, row: RowComponent) {
-        this.annotator.timeline.selectionGroup.forEach(annotation => this.events.deselectTimelineAnnotation.forEach(f => f(annotation.state)));
+        this.annotator.timeline.selectionGroup.map(x=>x).forEach(
+            annotation => {
+                this.events.deselectTimelineAnnotation.forEach(f => f(annotation.state))
+            }
+        );
         this.events.selectTimelineAnnotation.forEach(f => f(row.getData()));
     }
 

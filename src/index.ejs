@@ -30,6 +30,7 @@
 
 		.beholder-media {
 			width: 25%;
+			min-width: 500px;
             resize: horizontal;
             overflow: hidden;
         }
@@ -53,6 +54,7 @@
         .beholder-media-control > .slider {
             margin: 0 auto;
             height: auto;
+			width: 50px;
         }
 
         .beholder-media-control > span {
@@ -134,10 +136,141 @@
 		}
 
 
-		fetch("./010326.json")
+		fetch("./test.json")
 		    .then((response) => response.json())
 		    .then((json) => {
-				config.schema = json?.schema || {};
+				const schema = {
+					"modifiers": [
+						{
+							"key": "seqid",
+							"name": "seqid",
+							"type": "input"
+						},
+						{
+							"key": "pursuit",
+							"name": "pursuit",
+							"type": "list",
+							"options": [
+								"pursuit", "repair"
+							],
+							"editorParams": {
+								clearable: true,
+								autocomplete: true,
+								valuesLookup: "active",
+								allowEmpty: true,
+								listOnEmpty: true
+							}
+						},
+						{
+							"key": "target",
+							"name": "target",
+							"type": "input"
+						},
+						{
+							"key": "evidence",
+							"name": "evidence",
+							"type": "list",
+							"options": [
+								"inseq", "stuff", "context"
+							],
+							"editorParams": {
+								clearable: true,
+								autocomplete: true,
+								valuesLookup: "active",
+								allowEmpty: true,
+								listOnEmpty: true
+							}
+						},
+					]
+					//"modifiers": [
+					//	{
+					//		"key": "prev",
+					//		"name": "prev",
+					//		"type": "input"
+					//	},
+					//	{
+					//		"key": "turn",
+					//		"name": "CA Turn",
+					//		"type": "list",
+					//		"options": ["Fb", "Sb", "Fpost", "Spost", "Fpursuit", "Fpre", "Spre", "Fins", "Sins", "Fcounter", "phatic", "SCT", "?", "None", ""],
+					//		"editorParams": {
+					//			clearable: true,
+					//			autocomplete: true,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	},
+					//	{
+					//		"key": "absence",
+					//		"name": "absence",
+					//		"type": "list",
+					//		"options": ["position", "composition", "None", ""],
+					//		"editorParams": {
+					//			clearable: true,
+					//			autocomplete: true,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	},
+					//	{
+					//		"key": "feedback",
+					//		"name": "feedback",
+					//		"type": "list",
+					//		"editorParams": {
+					//			"values": ["modeling", "repair", "feedback", ""],
+					//			clearable: true,
+					//			autocomplete: false,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	},
+					//	{
+					//		"key": "intonation",
+					//		"name": "intonation",
+					//		"type": "list",
+					//		"options": ["interogative", ""],
+					//		"editorParams": {
+					//			clearable: true,
+					//			autocomplete: true,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	},
+					//	{
+					//		"key": "not_conversation",
+					//		"name": "non-conv.",
+					//		"type": "list",
+					//		"options": ["1", "0", ""],
+					//		"editorParams": {
+					//			clearable: true,
+					//			autocomplete: true,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	},
+					//	{
+					//		"key": "partial_obs",
+					//		"name": "partially observable",
+					//		"type": "list",
+					//		"options": ["1", "0", ""],
+					//		"editorParams": {
+					//			clearable: true,
+					//			autocomplete: true,
+					//			valuesLookup: "active",
+					//			allowEmpty: true,
+					//			listOnEmpty: true
+					//		}
+					//	}
+					//]
+				}
+
+				config["schema"] = schema;
+
 				controller = new beholder.Annotator(document.getElementById("controller"), json.timeline.startTime, json.timeline.endTime, config);
 		        controller.readState(json);
 				//json.timeline.channels.slice(0,2).forEach(c => controller.createChannel(c));
@@ -157,6 +290,14 @@
 		        event.preventDefault();
 		        controller.playpause();
 		    }
+		    if (event.key === "+") {
+		        event.preventDefault();
+				controller.speedUp(2);
+		    }
+		    if (event.key === "-") {
+		        event.preventDefault();
+				controller.slowDown(2);
+		    }
 		    if (event.key === "Delete") {
 				controller.deleteSelectedAnnotations();
 		    }
@@ -170,7 +311,13 @@
 		        controller.stepForward();
 		    }
 		    if (event.key === "ArrowLeft") {
-		        controller.stepForward();
+		        controller.stepBackward();
+		    }
+		    if (event.key === "Delete") {
+				controller.deleteSelectedAnnotations();
+		    }
+		    if (event.key === "Escape") {
+				controller.deselectAll();
 		    }
 			console.log(event.key);
 		});
