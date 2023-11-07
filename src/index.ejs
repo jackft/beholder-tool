@@ -117,6 +117,10 @@
 		.tabulator-header-filter > input {
 			height: 50% !important;
 		}
+
+		.tabulator {
+			font-size: 12px;
+		}
 	</style>
 
 </head>
@@ -142,17 +146,15 @@
 				const schema = {
 					"modifiers": [
 						{
-							"key": "seqid",
-							"name": "seqid",
+							"key": "sequence_id",
+							"name": "seq",
 							"type": "input"
 						},
 						{
-							"key": "pursuit",
-							"name": "pursuit",
+							"key": "turn",
+							"name": "turn type",
 							"type": "list",
-							"options": [
-								"pursuit", "repair"
-							],
+					  		"options": ["pursuit", "repair", "Fb", "Sb", "Fpursuit", "Fpost", "Spost", "Fpre", "Spre", "Fins", "Sins", "Fcounter", "phatic", "SCT"],
 							"editorParams": {
 								clearable: true,
 								autocomplete: true,
@@ -167,11 +169,50 @@
 							"type": "input"
 						},
 						{
+							"key": "src",
+							"name": "src",
+							"type": "input"
+						},
+						{
 							"key": "evidence",
 							"name": "evidence",
 							"type": "list",
 							"options": [
-								"inseq", "stuff", "context"
+								"produced", "modeled", "contrast", "visual", "auditory", "routine", "inferred"
+							],
+							"editorParams": {
+								clearable: true,
+								autocomplete: true,
+								valuesLookup: "active",
+								allowEmpty: true,
+								listOnEmpty: true
+							}
+						},
+						{
+							"key": "absence",
+							"name": "absence",
+							"type": "list",
+							"options": ["position", "composition", "phonetic", "trouble"],
+							"editorParams": {
+								clearable: true,
+								autocomplete: true,
+								valuesLookup: "active",
+								allowEmpty: true,
+								listOnEmpty: true
+							}
+						},
+						{
+							"key": "actity",
+							"name": "act",
+							"type": "list",
+					  		"options": [
+								"meal",
+								"play", "play|object", "play|pretense", "play|social", "play|rough&tumble", "play|art&craft",
+								"story", "story|book", "story|verbal", "story|tv", "story|audio",
+								"namegame", "showing",
+								"hygene", "hygene|diaper", "hygene|bath", "hygene|cloth_change", "hygene|wash",
+								"outdoor", "outdoor|play", "outdoor|walk",
+								"routine", "routine|greeting", "routine|degreeting", "routine|packing", "routine|cleanup", "routine|nursing"
 							],
 							"editorParams": {
 								clearable: true,
@@ -182,91 +223,6 @@
 							}
 						},
 					]
-					//"modifiers": [
-					//	{
-					//		"key": "prev",
-					//		"name": "prev",
-					//		"type": "input"
-					//	},
-					//	{
-					//		"key": "turn",
-					//		"name": "CA Turn",
-					//		"type": "list",
-					//		"options": ["Fb", "Sb", "Fpost", "Spost", "Fpursuit", "Fpre", "Spre", "Fins", "Sins", "Fcounter", "phatic", "SCT", "?", "None", ""],
-					//		"editorParams": {
-					//			clearable: true,
-					//			autocomplete: true,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	},
-					//	{
-					//		"key": "absence",
-					//		"name": "absence",
-					//		"type": "list",
-					//		"options": ["position", "composition", "None", ""],
-					//		"editorParams": {
-					//			clearable: true,
-					//			autocomplete: true,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	},
-					//	{
-					//		"key": "feedback",
-					//		"name": "feedback",
-					//		"type": "list",
-					//		"editorParams": {
-					//			"values": ["modeling", "repair", "feedback", ""],
-					//			clearable: true,
-					//			autocomplete: false,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	},
-					//	{
-					//		"key": "intonation",
-					//		"name": "intonation",
-					//		"type": "list",
-					//		"options": ["interogative", ""],
-					//		"editorParams": {
-					//			clearable: true,
-					//			autocomplete: true,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	},
-					//	{
-					//		"key": "not_conversation",
-					//		"name": "non-conv.",
-					//		"type": "list",
-					//		"options": ["1", "0", ""],
-					//		"editorParams": {
-					//			clearable: true,
-					//			autocomplete: true,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	},
-					//	{
-					//		"key": "partial_obs",
-					//		"name": "partially observable",
-					//		"type": "list",
-					//		"options": ["1", "0", ""],
-					//		"editorParams": {
-					//			clearable: true,
-					//			autocomplete: true,
-					//			valuesLookup: "active",
-					//			allowEmpty: true,
-					//			listOnEmpty: true
-					//		}
-					//	}
-					//]
 				}
 
 				config["schema"] = schema;

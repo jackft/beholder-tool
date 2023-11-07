@@ -57,8 +57,8 @@ export class TabulatorTable implements Table {
             scrollToRowPosition: "center",
             columns: [
                 { title: "id", field: "id" },
-                { title: "Start Time", field: "startTime", formatter: timeFormatter },
-                { title: "End Time", field: "endTime", formatter: timeFormatter },
+                { title: "Start Time", field: "startTime", formatter: timeFormatter, width: 80 },
+                { title: "End Time", field: "endTime", formatter: timeFormatter, width: 80},
                 { title: "Channel", field: "channel",  headerFilter: "input"},
                 { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "center", width: 300},
             ]
@@ -71,6 +71,12 @@ export class TabulatorTable implements Table {
                 editorParams: {},
                 headerFilter: "input"
             } 
+            if (modifier.type == "checkbox") {
+                // @ts-ignore
+                columnConfig.editor = true;
+                // @ts-ignore
+                columnConfig.formatter = "tickCross";
+            }
             if (modifier.editorParams !== null && modifier.editorParams !== undefined) {
                 columnConfig.editorParams = modifier.editorParams;
             }
