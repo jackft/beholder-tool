@@ -512,7 +512,6 @@ export class Timeline implements TimelineLike {
             .select();
     }
     deselectTimelineAnnotation(state: TimelineAnnotationState) {
-        console.log("deselecting", state);
         this.summary.deselectTimelineAnnotation(state);
         this.selectionGroup.remove(this.annotations[state.id])
         this.annotations[state.id].deselect();
@@ -656,6 +655,7 @@ export class Timeline implements TimelineLike {
         document.addEventListener("keyup", (event) => {
             if (event.key === "Control") {
                 this.insertEnabled = false;
+                this.multiSelectEnabled = false;
             }
             if (event.key === "Shift" || event.ctrlKey) {
                 this.multiSelectEnabled = false;

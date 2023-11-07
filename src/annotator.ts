@@ -277,6 +277,15 @@ export class Annotator {
         this.media.playpause();
     }
 
+    speedUp(factor) {
+        // @ts-ignore
+        this.media.speedUp(factor);
+    };
+    slowDown(factor) {
+        // @ts-ignore
+        this.media.slowDown(factor);
+    };
+
     stepForward() {this.media.stepForward(1);}
     stepBackward() {this.media.stepBackward(1);}
 

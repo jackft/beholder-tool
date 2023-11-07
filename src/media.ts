@@ -34,6 +34,7 @@ export class Video implements Media {
     currentTime: HTMLSpanElement = document.createElement("span")
     totalTime: HTMLSpanElement = document.createElement("span")
     frameElem: HTMLSpanElement = document.createElement("span")
+    playbackElem: HTMLSpanElement = document.createElement("span")
     state: MediaState
     events: MediaEvents
     framerate: number
@@ -139,11 +140,20 @@ export class Video implements Media {
         const frameContainer = document.createElement("div");
         frameContainer.setAttribute("class", "beholder-media-control")
         const frameLabel = document.createElement("span");
-        frameLabel.innerText = "frame=";
+        frameLabel.innerText = "#:"
         frameContainer.appendChild(frameLabel);
         frameContainer.appendChild(this.frameElem);
         this.frameElem.innerText = `${this._getFrame()}`;
         this.controls.appendChild(frameContainer);
+
+        const playbackContainer = document.createElement("div");
+        playbackContainer.setAttribute("class", "beholder-media-control")
+        playbackContainer.appendChild(this.playbackElem);
+        const playbackLabel = document.createElement("span");
+        playbackLabel.innerText = "x";
+        playbackContainer.appendChild(playbackLabel);
+        this.playbackElem.innerText = `${this._getPlayback()}`;
+        this.controls.appendChild(playbackContainer);
     }
 
     addEventListener(name, handler) {
@@ -240,6 +250,10 @@ export class Video implements Media {
         return Math.floor(this.element.currentTime / this.frameDuration);
     }
 
+    _getPlayback() {
+        return this.element.playbackRate;
+    }
+
     _frameStep(n=1, force=false) {
         this._setFrame(n + this._getFrame(), force)
     }
@@ -252,12 +266,21 @@ export class Video implements Media {
         }
     }
 
+    speedUp(factor) {
+        this.element.playbackRate *= factor;
+        this.playbackElem.innerText = `${this.element.playbackRate}`;
+    }
+    slowDown(factor) {
+        this.element.playbackRate /= factor;
+        this.playbackElem.innerText = `${this.element.playbackRate}`;
+    }
+
     stepForward(n = 1) {
         this._frameStep(n);
     }
 
-    stepBackward(n = -1) {
-        this._frameStep(n);
+    stepBackward(n = 1) {
+        this._frameStep(-n);
     }
 
 }
