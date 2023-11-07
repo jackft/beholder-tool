@@ -1662,7 +1662,10 @@ export class Channel {
     //
 
     findTimelineAnnotations(x: number, y: number): TimelineAnnotation[] {
-        return this.timelineAnnotationTree.search(x, x).map(id => this.timeline.annotations[id]);
+        return this.timelineAnnotationTree
+                   .search(x, x)
+                   .map(id => this.timeline.annotations[id])
+                   .filter(a => a.top() <= y && y <= a.y() + a.height());
     }
 
     findTimelineAnnotationsInterval(s: number, e: number): TimelineAnnotation[] {
@@ -1734,7 +1737,7 @@ export class Channel {
 
     overlapGroup(annotation: TimelineAnnotation) {
         const maxIter = 50;
-        const epsilon = 1e-10
+        const epsilon = 1e-2;
         let start = this.timeline.time2pixel(annotation.state.startTime);
         let end = this.timeline.time2pixel(annotation.state.endTime);
         for (let i=0; i < maxIter; ++i) {
@@ -1814,7 +1817,10 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     public boundHover: boolean = false
     private target: PIXI.Sprite | null = null
 
-    private margin: number = 3;
+    private margin: number = 2;
+
+    private overlapGroup: TimelineAnnotation[] = [this];
+    private overlapPosition: number = 0;
 
     //---------------------------------
     // view attributes
@@ -1850,6 +1856,10 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     update(track: boolean) {
         this.timeline.dispatch("updateTimelineAnnotation", this.newState, this.dragState, track);
         this.newState = deepCopy(this.state);
+        this.overlapGroup = this.channel.overlapGroup(this);
+        this.overlapPosition = this.overlapGroup
+                                   .sort((a, b) => a.state.id - b.state.id)
+                                   .findIndex(a => a.state.id == this.state.id);
         return this;
     }
     move(timeMs: number) {
@@ -1978,22 +1988,18 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     // Helpers
     //-------------------------------------------------------------------------
     x() { return this.timeline.xscale.inv(this.state.startTime) }
-    y() { 
-        return this.sprite.y;
-    }
+    y() { return this.sprite.y }
     top() { 
-        const overlapGroup = this.channel.overlapGroup(this);
-        const position = overlapGroup.findIndex(a => a.state.id == this.state.id, overlapGroup)
-        const offset = (this.channel.height/overlapGroup.length)*position;
-        return this.channel.top() + offset + this.margin;
+        const margins = (this.overlapPosition + 1) * this.margin;
+        return this.channel.top() + this.overlapPosition * this.height() + margins;
     }
     bottom() { return this.channel.bottom }
     middleX() { return this.start() + this.width() / 2 }
     middleY() { return this.y() + this.height() / 2 }
     width() { return this.end() - this.start() }
     height() { 
-        const overlapGroup = this.channel.overlapGroup(this);
-        return this.channel.height/overlapGroup.length - 2 * this.margin;
+        const available = this.channel.height - (1 + this.overlapGroup.length) * this.margin;
+        return available / this.overlapGroup.length
     }
     start() { return this.timeline.xscale.inv(this.state.startTime); }
     end() { return this.timeline.xscale.inv(this.state.endTime); }
