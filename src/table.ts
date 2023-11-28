@@ -26,7 +26,11 @@ export interface Table {
 
 //create Tabulator on DOM element with id "example-table"
 const timeFormatter = (cell, formatterParams, onRendered) => {
-    return new Date(cell.getValue()).toISOString().slice(11, 23)
+    try {
+        return new Date(cell.getValue()).toISOString().slice(11, 23)
+    } catch (error) {
+        return cell.getValue();
+    }
 }
 
 export class TabulatorTable implements Table {
@@ -53,14 +57,14 @@ export class TabulatorTable implements Table {
             data: [],
             clipboard: true,
             clipboardPasteAction: "replace",
-            responsiveLayout:"hide",
+            layout: "fitDataTable",
             scrollToRowPosition: "center",
             columns: [
                 { title: "id", field: "id" },
-                { title: "Start Time", field: "startTime", formatter: timeFormatter, width: 80 },
-                { title: "End Time", field: "endTime", formatter: timeFormatter, width: 80},
-                { title: "Channel", field: "channel",  headerFilter: "input"},
-                { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "center", width: 300},
+                { title: "Start Time", field: "startTime", formatter: timeFormatter, width: 40 },
+                { title: "End Time", field: "endTime", formatter: timeFormatter, width: 40},
+                { title: "Channel", field: "channel",  headerFilter: "input", width: 40},
+                { title: "value", field: "value", editor: "input", headerFilter: "input", headerFilterParams: {type: "regex"}, hozAlign: "left", width: 200},
             ]
         };
         this.annotator.schema.modifiers.forEach(modifier => {
@@ -106,6 +110,7 @@ export class TabulatorTable implements Table {
         this.table.on("cellEditing", (cell: CellComponent) => this.cellEditing(cell));
         this.table.on("cellEdited", (cell: CellComponent) => this.cellEdited(cell));
         this.table.on("rowClick", (event: UIEvent, row: RowComponent) => this.rowClicked(event, row));
+        this.table.on("cellClick", (event: UIEvent, cell: CellComponent) => this.cellClicked(event, cell));
 
         this.table.element.addEventListener("keypress", (event) => {
 		    if (event.key === "Enter") {
@@ -162,6 +167,12 @@ export class TabulatorTable implements Table {
             }
         );
         this.events.selectTimelineAnnotation.forEach(f => f(row.getData()));
+    }
+
+    cellClicked(event: UIEvent, cell: CellComponent) {
+        if (cell.getField() == "startTime" || cell.getField() == "endTime") {
+            this.annotator.updateTime(cell.getValue());
+        }
     }
 
     addEventListener(name, handler) {

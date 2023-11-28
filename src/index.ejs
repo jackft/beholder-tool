@@ -147,14 +147,14 @@
 					"modifiers": [
 						{
 							"key": "sequence_id",
-							"name": "seq",
+							"name": "sequence id",
 							"type": "input"
 						},
 						{
-							"key": "turn",
-							"name": "turn type",
+							"key": "position",
+							"name": "position",
 							"type": "list",
-					  		"options": ["pursuit", "repair", "Fb", "Sb", "Fpursuit", "Fpost", "Spost", "Fpre", "Spre", "Fins", "Sins", "Fcounter", "phatic", "SCT"],
+					  		"options": ["Fb", "Sb", "Fpursuit", "Fpost", "Spost", "Fpre", "Spre", "Fins", "Sins", "Fcounter", "phatic", "SCT"],
 							"editorParams": {
 								clearable: true,
 								autocomplete: true,
@@ -164,22 +164,19 @@
 							}
 						},
 						{
-							"key": "target",
-							"name": "target",
-							"type": "input"
+							"key": "pursuit",
+							"name": "pursuit",
+							"type": "checkbox",
+							"editorParams": {
+								"tristate": true,
+								"indeterminateValue": null 
+							}
 						},
 						{
-							"key": "src",
-							"name": "src",
-							"type": "input"
-						},
-						{
-							"key": "evidence",
-							"name": "evidence",
+							"key": "repair",
+							"name": "repair",
 							"type": "list",
-							"options": [
-								"produced", "modeled", "contrast", "visual", "auditory", "routine", "inferred"
-							],
+							"options": ["self", "other", "third"],
 							"editorParams": {
 								clearable: true,
 								autocomplete: true,
@@ -189,10 +186,10 @@
 							}
 						},
 						{
-							"key": "absence",
-							"name": "absence",
+							"key": "trouble",
+							"name": "trouble",
 							"type": "list",
-							"options": ["position", "composition", "phonetic", "trouble"],
+							"options": ["position", "fit", "composition", "articulation", "syntax", "word", "other"],
 							"editorParams": {
 								clearable: true,
 								autocomplete: true,
@@ -202,18 +199,10 @@
 							}
 						},
 						{
-							"key": "actity",
-							"name": "act",
+							"key": "target_word",
+							"name": "target word",
 							"type": "list",
-					  		"options": [
-								"meal",
-								"play", "play|object", "play|pretense", "play|social", "play|rough&tumble", "play|art&craft",
-								"story", "story|book", "story|verbal", "story|tv", "story|audio",
-								"namegame", "showing",
-								"hygene", "hygene|diaper", "hygene|bath", "hygene|cloth_change", "hygene|wash",
-								"outdoor", "outdoor|play", "outdoor|walk",
-								"routine", "routine|greeting", "routine|degreeting", "routine|packing", "routine|cleanup", "routine|nursing"
-							],
+							"options": ["@name", "@deictic", "@noun", "@verb", "@attribute", "@unknown"],
 							"editorParams": {
 								clearable: true,
 								autocomplete: true,
@@ -221,7 +210,7 @@
 								allowEmpty: true,
 								listOnEmpty: true
 							}
-						},
+						}
 					]
 				}
 
