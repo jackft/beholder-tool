@@ -30,6 +30,9 @@ enum MouseButton {
     Left,
     None
 }
+enum SummaryPanelState {
+    Time
+}
 
 class TimelineInteractionGroup {
     public annotations: Array<base.TimelineAnnotation>
@@ -957,27 +960,47 @@ export class Summary implements TimelineLike {
     private window: PIXI.Graphics
     private border: PIXI.Graphics
     private annotations: { [key: number]: PIXI.Sprite }
+    // control panel
+    private panel: HTMLDivElement = document.createElement("div");
+    private panelLeft: HTMLDivElement = document.createElement("div");
+    private panelRight: HTMLDivElement = document.createElement("div");
+    private timeButton: HTMLButtonElement = document.createElement("button");
+    private input: HTMLInputElement = document.createElement("input");
+    private panelState: SummaryPanelState = SummaryPanelState.Time;
+
     constructor(summaryControls: HTMLDivElement, summaryMainContainer: HTMLDivElement, timeline: Timeline, opts: PIXI.IApplicationOptions) {
         this.timeline = timeline;
         this.xscale = timeline.xscale;
         // view
         // <div>
         //   <div class='controls'>
-        //     <div class="beholder-summary-panel"></div>
+        //     <div class="beholder-summary-panel">
+        //       <div class="beholder-summary-panel-left"></div>
+        //       <div class="beholder-summary-panel-right"></div>
+        //     </div>
         //   </div>
         //   <div class='main'>
         //     <canvas/>
         //   </div>
         // </div>
-        const panel = document.createElement("div");
-        panel.style.background = "black";
-        panel.style.height = `${summaryHeight}px`;
-        panel.setAttribute("class", "beholder-summary-panel");
-        summaryControls.appendChild(panel);
+        this.panel.style.background = "black";
+        this.panel.style.height = `${summaryHeight}px`;
+        this.panel.setAttribute("class", "beholder-summary-panel");
+        this.panelLeft.setAttribute("class", "beholder-channel-buttons");
+        this.timeButton.innerHTML = "T";
+        this.timeButton.setAttribute("title", "time");
+        this.panelLeft.appendChild(this.timeButton);
+        this.panelRight.setAttribute("class", "beholder-summary-panel-right");
+        this.panelRight.appendChild(this.input);
+        this.panel.appendChild(this.panelLeft);
+        this.panel.appendChild(this.panelRight);
+        this.input.setAttribute("placeholder", "00:01:32");
+        summaryControls.appendChild(this.panel);
 
         const canvas = document.createElement("canvas");
         summaryMainContainer.appendChild(canvas);
 
+        //
         opts.view = canvas;
         opts.width = this.timeline.timelineApp.view.getBoundingClientRect().width;
         opts.height = summaryHeight;
@@ -1103,24 +1126,55 @@ export class Summary implements TimelineLike {
     resizeChannel() {}
 
     changeCursor(style: string) {
-        this.timeline.timelineApp.view.style.cursor = style;
+        this.app.view.style.cursor = style;
     }
 
     //-------------------------------------------------------------------------
     // Events
     //-------------------------------------------------------------------------
 
+    _goToTime(input) {
+        const parts = input.split(':').map(Number);                
+        console.log(parts);
+        if (parts.length == 1) {
+            const mseconds = parts[0] * 1000;
+            console.log(mseconds);
+            this.timeline.annotator.updateTime(mseconds)
+        } else if (parts.length == 2) {
+            const mseconds = (parts[0]*60 +  parts[1]) * 1000;
+            this.timeline.annotator.updateTime(mseconds)
+        } else if (parts.length == 3) {
+            const mseconds = (parts[0]*60*60 + parts[1]*60 +  parts[2]) * 1000;
+            this.timeline.annotator.updateTime(mseconds)
+        }
+    }
+
     _bindEvents() {
         this.app.stage.hitArea = new PIXI.Rectangle(0, 0, this.app.stage.width, this.app.stage.height);
         this.app.stage.on("pointerdown", this._onPointerDown, this);
         this.app.stage.on("pointermove", this._onPointerMove, this);
         this.app.stage.on("pointerup", this._onPointerUp, this);
+
+        this.input.addEventListener('input', (event: Event) => {
+            // @ts-ignore
+            this._goToTime(this.input.value);
+        });
+        this.input.addEventListener('paste', (event: Event) => {
+            // @ts-ignore
+            this._goToTime(this.input.value);
+        });
+        this.input.addEventListener('keydown', (event: Event) => {
+            // @ts-ignore
+            if (event.key === 'Enter') {
+                this._goToTime(this.input.value);
+            }
+        });
     }
 
     _onPointerDown(event: PIXI.InteractionEvent) {
         const x = event.data.global.x;
         const y = event.data.global.y;
-        if (this.window.y <= y && y <= this.window.y + this.window.height && this.window.x <= x && x <= this.window.x + this.window.width) {
+        if (this._isOnWindow(x, y)) {
             this.dragging = true;
             this.mouseDownX = event.data.global.x;
             this.mouseDownY = event.data.global.y;
@@ -1130,12 +1184,13 @@ export class Summary implements TimelineLike {
         if (this._isOnRuler(y)) {
             this.rulerDrag = true;
         }
+        this._changeCursor(x, y);
     }
 
     _isOnRuler(y: number) { return this.ruler.top <= y && y <= this.ruler.bottom }
     _isOnWindow(x: number, y: number) {
         return this.window.y <= y && y <= this.window.y + this.window.height &&
-               this.window.x <= x && x <= this.window.x + this.window.width;
+               this.window.x <= x && x <= this.window.x + this.window.width
     }
 
     _onPointerMove(event: PIXI.InteractionEvent) {
@@ -1144,18 +1199,21 @@ export class Summary implements TimelineLike {
             this.indexCursor.updateTime(time);
             this.timeline.events["updateTime"].forEach(f => f(time));
         }
-        if (!this.dragging) return;
-        this.window.x = this.targetMouseDownX + event.data.global.x - this.mouseDownX;
-        this.timeline.viewport.left = this.window.x;
-        this.timeline._onMoved();
-        const x = this.timeline._rectifyX(event.data.global.x)
-        const y = event.data.global.y
+        if (this.dragging) {
+            this.window.x = this.targetMouseDownX + event.data.global.x - this.mouseDownX;
+            this.timeline.viewport.left = this.window.x;
+            this.timeline._onMoved();
+        }
+        const x = event.data.global.x;
+        const y = event.data.global.y;
         this._changeCursor(x, y);
     }
 
     _onPointerUp(event: PIXI.InteractionEvent) {
         this.stopDrag();
-        this.timeline.stopDrag();
+        const x = event.data.global.x;
+        const y = event.data.global.y;
+        this._changeCursor(x, y);
     }
     stopDrag() {
         this.dragging = false;
@@ -1163,8 +1221,21 @@ export class Summary implements TimelineLike {
     }
 
     _changeCursor(x: number, y: number) {
+        if (this.dragging) {
+            // @ts-ignore
+            this.changeCursor("grabbing");
+            return;
+        }
         if (this._isOnWindow(x, y)) {
             this.changeCursor("grab");
+            return;
+        }
+        if (this._isOnRuler(y)) {
+            this.changeCursor("text");
+            return;
+        }
+        if (this.rulerDrag) {
+            this.changeCursor("text");
             return;
         }
         this.changeCursor("default");
