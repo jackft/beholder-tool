@@ -1102,6 +1102,10 @@ export class Summary implements TimelineLike {
 
     resizeChannel() {}
 
+    changeCursor(style: string) {
+        this.timeline.timelineApp.view.style.cursor = style;
+    }
+
     //-------------------------------------------------------------------------
     // Events
     //-------------------------------------------------------------------------
@@ -1129,6 +1133,10 @@ export class Summary implements TimelineLike {
     }
 
     _isOnRuler(y: number) { return this.ruler.top <= y && y <= this.ruler.bottom }
+    _isOnWindow(x: number, y: number) {
+        return this.window.y <= y && y <= this.window.y + this.window.height &&
+               this.window.x <= x && x <= this.window.x + this.window.width;
+    }
 
     _onPointerMove(event: PIXI.InteractionEvent) {
         if (this.rulerDrag) {
@@ -1140,6 +1148,9 @@ export class Summary implements TimelineLike {
         this.window.x = this.targetMouseDownX + event.data.global.x - this.mouseDownX;
         this.timeline.viewport.left = this.window.x;
         this.timeline._onMoved();
+        const x = this.timeline._rectifyX(event.data.global.x)
+        const y = event.data.global.y
+        this._changeCursor(x, y);
     }
 
     _onPointerUp(event: PIXI.InteractionEvent) {
@@ -1149,6 +1160,14 @@ export class Summary implements TimelineLike {
     stopDrag() {
         this.dragging = false;
         this.rulerDrag = false;
+    }
+
+    _changeCursor(x: number, y: number) {
+        if (this._isOnWindow(x, y)) {
+            this.changeCursor("grab");
+            return;
+        }
+        this.changeCursor("default");
     }
 
 }

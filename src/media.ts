@@ -35,6 +35,8 @@ export class Video implements Media {
     totalTime: HTMLSpanElement = document.createElement("span")
     frameElem: HTMLSpanElement = document.createElement("span")
     playbackElem: HTMLSpanElement = document.createElement("span")
+    playbackSpeeds: Array<number> = [0.05, 0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 2.25, 2.5, 3.0, 5.0, 10.0]
+    playbackSpeedIdx: number = 4
     state: MediaState
     events: MediaEvents
     framerate: number
@@ -267,11 +269,13 @@ export class Video implements Media {
     }
 
     speedUp(factor) {
-        this.element.playbackRate *= factor;
+        this.playbackSpeedIdx = Math.min(this.playbackSpeeds.length - 1, this.playbackSpeedIdx + 1);
+        this.element.playbackRate = this.playbackSpeeds[this.playbackSpeedIdx];
         this.playbackElem.innerText = `${this.element.playbackRate}`;
     }
     slowDown(factor) {
-        this.element.playbackRate /= factor;
+        this.playbackSpeedIdx = Math.max(0, this.playbackSpeedIdx - 1);
+        this.element.playbackRate = this.playbackSpeeds[this.playbackSpeedIdx];
         this.playbackElem.innerText = `${this.element.playbackRate}`;
     }
 
