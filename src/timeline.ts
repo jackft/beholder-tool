@@ -31,7 +31,8 @@ enum MouseButton {
     None
 }
 enum SummaryPanelState {
-    Time
+    Time,
+    Settings
 }
 
 class TimelineInteractionGroup {
@@ -963,9 +964,12 @@ export class Summary implements TimelineLike {
     // control panel
     private panel: HTMLDivElement = document.createElement("div");
     private panelLeft: HTMLDivElement = document.createElement("div");
-    private panelRight: HTMLDivElement = document.createElement("div");
     private timeButton: HTMLButtonElement = document.createElement("button");
-    private input: HTMLInputElement = document.createElement("input");
+    private settingsButton: HTMLButtonElement = document.createElement("button");
+    private timePanelRight: HTMLDivElement = document.createElement("div");
+    private timeInput: HTMLInputElement = document.createElement("input");
+    private settingsPanelRight: HTMLDivElement = document.createElement("div");
+    private lockInput: HTMLButtonElement = document.createElement("button");
     private panelState: SummaryPanelState = SummaryPanelState.Time;
 
     constructor(summaryControls: HTMLDivElement, summaryMainContainer: HTMLDivElement, timeline: Timeline, opts: PIXI.IApplicationOptions) {
@@ -983,18 +987,8 @@ export class Summary implements TimelineLike {
         //     <canvas/>
         //   </div>
         // </div>
-        this.panel.style.background = "black";
-        this.panel.style.height = `${summaryHeight}px`;
-        this.panel.setAttribute("class", "beholder-summary-panel");
-        this.panelLeft.setAttribute("class", "beholder-channel-buttons");
-        this.timeButton.innerHTML = "T";
-        this.timeButton.setAttribute("title", "time");
-        this.panelLeft.appendChild(this.timeButton);
-        this.panelRight.setAttribute("class", "beholder-summary-panel-right");
-        this.panelRight.appendChild(this.input);
-        this.panel.appendChild(this.panelLeft);
-        this.panel.appendChild(this.panelRight);
-        this.input.setAttribute("placeholder", "00:01:32");
+        this.initPanel();
+        this.setTimePanel();
         summaryControls.appendChild(this.panel);
 
         const canvas = document.createElement("canvas");
@@ -1129,16 +1123,61 @@ export class Summary implements TimelineLike {
         this.app.view.style.cursor = style;
     }
 
+    destroyPanel() {
+        for (const child of this.panel.children) {
+            this.panel.removeChild(child);
+        }
+    }
+
+    initPanel() {
+        this.panel.style.background = "black";
+        this.panel.style.height = `${summaryHeight}px`;
+        this.panel.setAttribute("class", "beholder-summary-panel");
+        this.panelLeft.setAttribute("class", "beholder-channel-buttons");
+        this.timeButton.innerHTML = "T";
+        this.timeButton.setAttribute("title", "time");
+        this.panelLeft.appendChild(this.timeButton);
+        this.settingsButton.innerHTML = '<i class="fa-solid fa-gear"></i>';
+        this.settingsButton.setAttribute("title", "settings");
+        this.panelLeft.appendChild(this.settingsButton);
+
+        this.timePanelRight.setAttribute("class", "beholder-summary-panel-right");
+        this.timePanelRight.appendChild(this.timeInput);
+        this.panel.appendChild(this.panelLeft);
+        this.panel.appendChild(this.timePanelRight);
+        this.timeInput.setAttribute("placeholder", "00:01:32");
+
+        // other panels
+        this.settingsPanelRight.setAttribute("class", "beholder-summary-panel-right");
+        this.settingsPanelRight.appendChild(this.lockInput);
+        this.lockInput.innerHTML = '<i class="fa-solid fa-lock-open"></i>'
+    }
+
+    setTimePanel() {
+        for (const child of [this.timePanelRight, this.settingsPanelRight]) {
+            if (this.panel.contains(child)) {
+                this.panel.removeChild(child);
+            }
+        }
+        this.panel.appendChild(this.timePanelRight);
+    }
+    setSettingsPanel() {
+        for (const child of [this.timePanelRight, this.settingsPanelRight]) {
+            if (this.panel.contains(child)) {
+                this.panel.removeChild(child);
+            }
+        }
+        this.panel.appendChild(this.settingsPanelRight);
+    }
+
     //-------------------------------------------------------------------------
     // Events
     //-------------------------------------------------------------------------
 
     _goToTime(input) {
         const parts = input.split(':').map(Number);                
-        console.log(parts);
         if (parts.length == 1) {
             const mseconds = parts[0] * 1000;
-            console.log(mseconds);
             this.timeline.annotator.updateTime(mseconds)
         } else if (parts.length == 2) {
             const mseconds = (parts[0]*60 +  parts[1]) * 1000;
@@ -1155,19 +1194,29 @@ export class Summary implements TimelineLike {
         this.app.stage.on("pointermove", this._onPointerMove, this);
         this.app.stage.on("pointerup", this._onPointerUp, this);
 
-        this.input.addEventListener('input', (event: Event) => {
+        // summary panel
+        this.timeInput.addEventListener('input', (event: Event) => {
             // @ts-ignore
-            this._goToTime(this.input.value);
+            this._goToTime(event.target.value);
         });
-        this.input.addEventListener('paste', (event: Event) => {
+        this.timeInput.addEventListener('paste', (event: Event) => {
             // @ts-ignore
-            this._goToTime(this.input.value);
+            this._goToTime(event.target.value);
         });
-        this.input.addEventListener('keydown', (event: Event) => {
+        this.timeInput.addEventListener('keydown', (event: Event) => {
             // @ts-ignore
             if (event.key === 'Enter') {
-                this._goToTime(this.input.value);
+                this._goToTime(this.timeInput.value);
             }
+        });
+
+        this.timeButton.addEventListener("click", (event: MouseEvent) => {
+            this.panelState = SummaryPanelState.Time;
+            this.setTimePanel();
+        });
+        this.settingsButton.addEventListener("click", (event: MouseEvent) => {
+            this.panelState = SummaryPanelState.Time;
+            this.setSettingsPanel();
         });
     }
 
