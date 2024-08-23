@@ -16,6 +16,50 @@
 			padding: 0;
 		}
 
+		.grid-panel {
+
+		    background-color: #ccc;
+		    display: flex;
+		    justify-content: center;
+		    align-items: center;
+		    border: 1px solid #999;
+
+			height: fit-content;
+		}
+
+
+		.layout0 {
+		    grid-template-areas:
+		        "A B"
+		        "C C";
+		    grid-template-columns: auto minmax(0, 3fr);
+		    grid-template-rows: auto 1fr;
+		}
+
+		.layout1 {
+		    grid-template-areas:
+		        "A"
+		        "C";
+		    grid-template-columns: 1fr;
+		    grid-template-rows: auto 1fr;
+		}
+
+		.layout2 {
+		    grid-template-areas:
+		        "A"
+		        "B"
+		        "C";
+		    grid-template-columns: 1fr;
+		    grid-template-rows: auto auto 1fr;
+		}
+
+		.layout3 {
+		    grid-template-areas:
+		        "A";
+		    grid-template-columns: 1fr;
+		    grid-template-rows: 1fr;
+		}
+
 		#summary-content {
 			background: #000000;
 		}
@@ -24,8 +68,8 @@
 		}
 
 		.beholder-table {
-            resize: horizontal;
             overflow: hidden;
+			width: 100%;
 		}
 
 		.beholder-media {
@@ -145,7 +189,15 @@
 
 <body>
 	<noscript>Please enable JavaScript in your web browser to view this page.</noscript>
-	<div id="controller" style="margin: auto; max-width: 2000px; width: 90%; border: solid black 1px;">
+
+	<div class="btn-group" role="group" aria-label="Basic example">
+	  <button type="button" class="btn btn-secondary">default</button>
+	  <button type="button" class="btn btn-secondary">vertical</button>
+	  <button type="button" class="btn btn-secondary">two</button>
+	  <button type="button" class="btn btn-secondary">one</button>
+	</div>
+
+	<div id="controller" style="display: grid; margin: auto; max-width: 2000px; width: 90%; border: solid black 1px;">
 	</div>
 	<button id="download">save</button>
 	<script>
@@ -241,7 +293,7 @@
 		    });
 
 		document.addEventListener("keypress", event => {
-		    console.log(event.key);
+		    console.log(event);
 			if (controller.textediting) return;
 		    if (event.key === "z") {
 		        controller.undo();
@@ -250,8 +302,8 @@
 		        controller.redo();
 		    }
 		    if (event.key === " ") {
-		        event.preventDefault();
-		        controller.playpause();
+				event.preventDefault();
+				controller.playpause();
 		    }
 		    if (event.key === "+") {
 		        event.preventDefault();
@@ -267,14 +319,32 @@
 		    if (event.key === "Escape") {
 				controller.deselectAll();
 		    }
+			if (event.key == ">") {
+				controller.cycleLayout(1);
+			}
+			if (event.key == "<") {
+				controller.cycleLayout(-1);
+			}
 		});
 		document.addEventListener("keydown", event => {
 			if (controller.textediting) return;
 		    if (event.key === "ArrowRight") {
-		        controller.stepForward();
+				if (event.shiftKey) {
+		        	controller.stepForward(30);
+				} if (event.ctrlKey) {
+		        	controller.shiftTimelineAnnotationForward();
+				} else {
+		        	controller.stepForward();
+				}
 		    }
 		    if (event.key === "ArrowLeft") {
-		        controller.stepBackward();
+				if (event.shiftKey) {
+		        	controller.stepBackward(30);
+				} if (event.ctrlKey) {
+		        	controller.shiftTimelineAnnotationBackward();
+				} else {
+		        	controller.stepBackward();
+				}
 		    }
 		    if (event.key === "Delete") {
 				controller.deleteSelectedAnnotations();

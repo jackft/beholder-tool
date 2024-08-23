@@ -92,36 +92,37 @@ export class Annotator {
 
 
     //
+    public panels = {
+        "A": document.createElement("div"),
+        "B": document.createElement("div"),
+        "C": document.createElement("div")
+    }
+    public layouts: Array<string> = ["layout0", "layout1", "layout2", "layout3"];
+    public currentLayout: number = 0;
     public element: HTMLDivElement;
 
     constructor(element: HTMLDivElement, start: number, end: number, config: any = {}) {
-        // <div>
-        //   <div>
-        //     <div class="medi"></div>
-        //     <div class="table"></div>
-        //   </div>
-        //   <div>
-        //     <div class="timeline"></div>
-        //   </div>
-        // </div>
-
         this.element = element;
 
-        const topContainer = document.createElement("div");
-        topContainer.style.display = "flex";
-        this.element.appendChild(topContainer);
-        const bottomContainer = document.createElement("div");
-        this.element.appendChild(bottomContainer);
+        this.panels.A.classList.add("grid-panel");
+        this.panels.A.style.gridArea = "A";
+        this.panels.A.style.resize = "horizontal";
+        this.element.appendChild(this.panels.A);
+        this.panels.B.classList.add("grid-panel");
+        this.panels.B.style.gridArea = "B";
+        this.panels.B.style.overflow = "hidden";
+        this.element.appendChild(this.panels.B);
+        this.panels.C.classList.add("grid-panel");
+        this.panels.C.style.gridArea = "C";
+        this.element.appendChild(this.panels.C);
 
-        const timelineContainer = document.createElement("div");
-        this.element.appendChild(timelineContainer);
+        this.element.classList.add(this.layouts[this.currentLayout]);
 
         this.schema = new Schema(config?.schema || {});
-        this.timeline = new timeline.Timeline(this, timelineContainer, start, end, config?.timeline || {});
-        this.media = new media.Video(topContainer, config);
-        this.table = new table.TabulatorTable(this, topContainer);
+        this.timeline = new timeline.Timeline(this, this.panels.C, start, end, config?.timeline || {});
+        this.media = new media.Video(this.panels.A, config);
+        this.table = new table.TabulatorTable(this, this.panels.B);
         this.historyHandler = new HistoryHandler();
-
         this._bindEvents();
     }
 
@@ -140,7 +141,7 @@ export class Annotator {
         this.timeline.addEventListener("createChannel", (state: ChannelState) => this.createChannel(state));
 
         this.media.addEventListener("media.timeupdate", (event) => this.timeline.timeUpdate(event.timeMs));
-        this.media.addEventListener("media.resize", (entry) => this.table.resize(entry.contentRect.height));
+        this.media.addEventListener("media.resize", (entry) => this.table.resize(entry.contentRect.height - 2));
     }
 
     createChannel(state: ChannelState, track = false) {
@@ -272,6 +273,12 @@ export class Annotator {
             this.table.deselectTimelineAnnotation(annotation.state);
         });
     }
+    shiftTimelineAnnotationForward() {
+        this.timeline.shiftAnnotationForward();
+    }
+    shiftTimelineAnnotationBackward() {
+        this.timeline.shiftAnnotationBackward();
+    }
 
     playpause() {
         this.media.playpause();
@@ -286,8 +293,8 @@ export class Annotator {
         this.media.slowDown(factor);
     };
 
-    stepForward() {this.media.stepForward(1);}
-    stepBackward() {this.media.stepBackward(1);}
+    stepForward(n=1) {this.media.stepForward(n);}
+    stepBackward(n=1) {this.media.stepBackward(n);}
 
     updateTime(timeMs: number) {
         this.media.updateTime(timeMs);
@@ -314,6 +321,28 @@ export class Annotator {
         this.media.readState(state.media);
         state.timeline.channels.forEach(channel => this.createChannel(channel));
         this.batchCreateTimelineAnnotations(state.timeline.timelineAnnotations);
+    }
+
+    cycleLayout(direction = 1) {
+        this.element.classList.remove(this.layouts[this.currentLayout]);
+        this.currentLayout = (this.currentLayout + direction) % this.layouts.length;
+        if (this.currentLayout < 0) {
+            this.currentLayout = this.layouts.length - 1;
+        }
+        this.element.classList.add(this.layouts[this.currentLayout]);
+        const gridTemplateAreas = window.getComputedStyle(this.element)["grid-template-areas"];
+        console.log(this.currentLayout);
+        Object.entries(this.panels).forEach(value => {
+            const [panelKey, panelElem] = value;
+            const pattern = new RegExp(`\\b(${panelKey})\\b`);
+            console.log(pattern, gridTemplateAreas, pattern.test(gridTemplateAreas))
+            // hide all panels that aren't in the current grid-template-areas
+            if (pattern.test(gridTemplateAreas)) {
+                panelElem.style.display = "";
+            } else {
+                panelElem.style.display = "none";
+            }
+        });
     }
 
 }

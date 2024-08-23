@@ -15,7 +15,8 @@ const annotationColor = 0xc1c1c1;
 const annotationHoverColor = 0xe1e1e1;
 const annotationSelectColor = 0xf1f1f1;
 const annotationBarColor = 0x2585cc;
-const annotationBarSelectColor = 0x00ff00;
+const annotationSelectBarColor = 0x00ff00;
+const annotationSelectBarColorSelected = 0xff0000;
 const channelPanelWidth = 150;
 const channelTreeWidth = 20;
 const summaryHeight = 50;
@@ -166,6 +167,14 @@ class TimelineInteractionGroup {
     }
     enableDragEnd() {
         this.annotations.forEach(annotation => annotation.enableDragEnd());
+        return this;
+    }
+    shiftAnnotationForward() {
+        this.annotations.forEach(annotation => annotation.shiftAnnotationForward());
+        return this;
+    }
+    shiftAnnotationBackward() {
+        this.annotations.forEach(annotation => annotation.shiftAnnotationBackward());
         return this;
     }
 }
@@ -519,6 +528,17 @@ export class Timeline implements TimelineLike {
         this.summary.deselectTimelineAnnotation(state);
         this.selectionGroup.remove(this.annotations[state.id])
         this.annotations[state.id].deselect();
+    }
+
+    shiftAnnotationForward() {
+        this.selectionGroup.shiftAnnotationForward()
+            .update(true);
+        return this;
+    }
+    shiftAnnotationBackward() {
+        this.selectionGroup.shiftAnnotationBackward()
+            .update(true);
+        return this;
     }
 
     timeUpdate(milliseconds: number) {
@@ -1114,7 +1134,7 @@ export class Summary implements TimelineLike {
         this.window.width = Math.max(1, this.timeline.widthInView());
     }
     render() {
-        
+
     }
 
     resizeChannel() {}
@@ -1175,7 +1195,7 @@ export class Summary implements TimelineLike {
     //-------------------------------------------------------------------------
 
     _goToTime(input) {
-        const parts = input.split(':').map(Number);                
+        const parts = input.split(':').map(Number);
         if (parts.length == 1) {
             const mseconds = parts[0] * 1000;
             this.timeline.annotator.updateTime(mseconds)
@@ -1385,8 +1405,8 @@ class RulerPanel {
         this.rootElem.appendChild(channelName);
 
         this.resizeObserver = new ResizeObserver((entries) => {
-            this.ruler.height = this.rootElem.getBoundingClientRect().height;
-            this.ruler.timeline.resizeChannel();
+            //this.ruler.height = this.rootElem.getBoundingClientRect().height;
+            //this.ruler.timeline.resizeChannel();
         });
         this.resizeObserver.observe(this.rootElem);
 
@@ -1672,6 +1692,10 @@ class ChannelPanel {
 
         this.deleteButton.style.display = "none";
         this.childButton.style.display = "none";
+        this.channel.children().forEach(childChannel => {
+            childChannel.panel.minimize();
+            childChannel.hide();
+        });
     }
 
     maximize() {
@@ -1683,6 +1707,11 @@ class ChannelPanel {
 
         this.deleteButton.style.display = "inline";
         this.childButton.style.display = "inline";
+
+        this.channel.children().forEach(childChannel => {
+            childChannel.show();
+            childChannel.panel.maximize();
+        });
     }
 }
 
@@ -1694,7 +1723,7 @@ export class Channel {
     public panel: ChannelPanel
     public parent: Channel | undefined = undefined
 
-    // 
+    //
     private annotationIds: Set<number> = new Set([])
     public left: number = 0
     public right: number = 0
@@ -1752,6 +1781,10 @@ export class Channel {
 
     descendents(): Array<Channel> {
         return this.timeline.channels.filter(channel => channel.isDescendent(this.state.id));
+    }
+
+    children(): Array<Channel> {
+        return this.timeline.channels.filter(channel => channel.parent !== undefined && channel.parent.state.id == this.state.id);
     }
 
     //
@@ -1836,6 +1869,19 @@ export class Channel {
         this.timeline.channelPanel.appendChild(this.panel.rootElem);
         this.timeline.channelTreeContainer.addChild(this.treepath);
         this.draw();
+    }
+    hide() {
+        this.height = 0;
+        this.border.visible = false;
+        this.backgroundSprite.visible = false;
+        this.treepath.visible = false;
+        this.panel.rootElem.style.display = "none";
+    }
+    show() {
+        this.border.visible = true;
+        this.backgroundSprite.visible = true;
+        this.treepath.visible = true;
+        this.panel.rootElem.style.display = "";
     }
     draw() {
         this.border.position.set(0, this.bottom());
@@ -2044,13 +2090,38 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.newState.channelId = channelId;
         return this;
     }
+    shiftAnnotationForward() {
+        const framerate = this.timeline.annotator.media.state.framerate;
+        if (framerate !== null) {
+            if (this.selectedStart) {
+                this.shiftStart(1000/framerate);
+                this.timeline.annotator.updateTime(this.newState.startTime);
+            } else if (this.selectedEnd) {
+                this.shiftEnd(1000/framerate);
+                this.timeline.annotator.updateTime(this.newState.endTime);
+            }
+        }
+        return this;
+    }
+    shiftAnnotationBackward() {
+        const framerate = this.timeline.annotator.media.state.framerate;
+        if (framerate !== null) {
+            if (this.selectedStart) {
+                this.shiftStart(-1000/framerate);
+                this.timeline.annotator.updateTime(this.newState.startTime);
+            } else if (this.selectedEnd) {
+                this.shiftEnd(-1000/framerate);
+                this.timeline.annotator.updateTime(this.newState.endTime);
+            }
+        }
+        return this;
+    }
     delete() {
         this.sprite.destroy();
         this.left.destroy();
         this.right.destroy();
         this.text.destroy();
     }
-
     rescale() {
         const xScale = this.timeline.zoomFactor();
         const width = (this.hovered ? 4 : 1) / xScale;
@@ -2104,6 +2175,9 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.newState = deepCopy(this.state);
         this.draggedStart = true;
         this.dragDownStartTime = this.state.startTime
+        this.left.tint = annotationSelectBarColorSelected;
+        this.selectedEnd = false;
+        this.selectedStart = true;
         return this;
     }
     enableDragEnd() {
@@ -2111,6 +2185,9 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.newState = deepCopy(this.state);
         this.draggedEnd = true;
         this.dragDownEndTime = this.state.endTime
+        this.right.tint = annotationSelectBarColorSelected;
+        this.selectedEnd = true;
+        this.selectedStart = false;
         return this;
     }
 
@@ -2128,7 +2205,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     //-------------------------------------------------------------------------
     x() { return this.timeline.xscale.inv(this.state.startTime) }
     y() { return this.sprite.y }
-    top() { 
+    top() {
         const margins = (this.overlapPosition + 1) * this.margin;
         return this.channel.top() + this.overlapPosition * this.height() + margins;
     }
@@ -2136,7 +2213,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     middleX() { return this.start() + this.width() / 2 }
     middleY() { return this.y() + this.height() / 2 }
     width() { return this.end() - this.start() }
-    height() { 
+    height() {
         const available = this.channel.height - (1 + this.overlapGroup.length) * this.margin;
         return available / this.overlapGroup.length
     }
@@ -2220,8 +2297,16 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
 
     select() {
         this.sprite.tint = annotationSelectColor;
-        this.left.tint = annotationBarSelectColor;
-        this.right.tint = annotationBarSelectColor;
+        if (this.selectedStart) {
+            this.right.tint = annotationSelectBarColorSelected;
+        } else {
+            this.left.tint = annotationSelectBarColor;
+        }
+        if (this.selectedEnd) {
+            this.right.tint = annotationSelectBarColorSelected;
+        } else {
+            this.right.tint = annotationSelectBarColor;
+        }
         this.selected = true;
 
         return this;
@@ -2232,6 +2317,10 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.left.tint = annotationBarColor;
         this.right.tint = annotationBarColor;
         this.selected = false;
+
+        this.selectedStart = false;
+        this.selectedEnd = false;
+
         return this;
     }
 
