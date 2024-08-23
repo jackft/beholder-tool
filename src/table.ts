@@ -51,7 +51,7 @@ export class TabulatorTable implements Table {
         rootElem.appendChild(tableElem);
 
         const config = {
-            height: tableElem.getBoundingClientRect().height,
+            height: 400,
             rowHeight: 30,
             autoResize: true,
             data: [],
@@ -74,7 +74,7 @@ export class TabulatorTable implements Table {
                 editor: modifier.type,
                 editorParams: {},
                 headerFilter: "input"
-            } 
+            }
             if (modifier.type == "checkbox") {
                 // @ts-ignore
                 columnConfig.editor = true;
@@ -97,13 +97,6 @@ export class TabulatorTable implements Table {
         this.table = new Tabulator(tableElem, config);
 
         this._bindEvents();
-
-        setTimeout(() => {
-            this.resize(this.table.element.getBoundingClientRect().height);
-            this.table.setSort([
-                {column:"startTime", dir:"asc"}, //sort by this first
-            ])
-        }, 3000);
     }
 
     _bindEvents() {
@@ -133,7 +126,7 @@ export class TabulatorTable implements Table {
     resize(height: number) {
         if (this.table.element.parentElement === null) return;
         if (this.table.columnManager.getElement() === null) return;
-        this.table.setHeight(height - 10);
+        this.table.setHeight(height);
     }
 
     cellEditing(cell: CellComponent) {
@@ -198,6 +191,9 @@ export class TabulatorTable implements Table {
         setTimeout(() => {
             states.forEach(state => state["channel"] = this.channelName(state));
             this.table.addData(states);
+            this.table.setSort([
+                {column:"startTime", dir:"asc"}, //sort by this first
+            ]);
         }, 10);
     }
 

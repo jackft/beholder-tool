@@ -1114,7 +1114,7 @@ export class Summary implements TimelineLike {
         this.window.width = Math.max(1, this.timeline.widthInView());
     }
     render() {
-        
+
     }
 
     resizeChannel() {}
@@ -1175,7 +1175,7 @@ export class Summary implements TimelineLike {
     //-------------------------------------------------------------------------
 
     _goToTime(input) {
-        const parts = input.split(':').map(Number);                
+        const parts = input.split(':').map(Number);
         if (parts.length == 1) {
             const mseconds = parts[0] * 1000;
             this.timeline.annotator.updateTime(mseconds)
@@ -1385,8 +1385,8 @@ class RulerPanel {
         this.rootElem.appendChild(channelName);
 
         this.resizeObserver = new ResizeObserver((entries) => {
-            this.ruler.height = this.rootElem.getBoundingClientRect().height;
-            this.ruler.timeline.resizeChannel();
+            //this.ruler.height = this.rootElem.getBoundingClientRect().height;
+            //this.ruler.timeline.resizeChannel();
         });
         this.resizeObserver.observe(this.rootElem);
 
@@ -1672,6 +1672,10 @@ class ChannelPanel {
 
         this.deleteButton.style.display = "none";
         this.childButton.style.display = "none";
+        this.channel.children().forEach(childChannel => {
+            childChannel.panel.minimize();
+            childChannel.hide();
+        });
     }
 
     maximize() {
@@ -1683,6 +1687,11 @@ class ChannelPanel {
 
         this.deleteButton.style.display = "inline";
         this.childButton.style.display = "inline";
+
+        this.channel.children().forEach(childChannel => {
+            childChannel.show();
+            childChannel.panel.maximize();
+        });
     }
 }
 
@@ -1752,6 +1761,10 @@ export class Channel {
 
     descendents(): Array<Channel> {
         return this.timeline.channels.filter(channel => channel.isDescendent(this.state.id));
+    }
+
+    children(): Array<Channel> {
+        return this.timeline.channels.filter(channel => channel.parent !== undefined && channel.parent.state.id == this.state.id);
     }
 
     //
@@ -1836,6 +1849,19 @@ export class Channel {
         this.timeline.channelPanel.appendChild(this.panel.rootElem);
         this.timeline.channelTreeContainer.addChild(this.treepath);
         this.draw();
+    }
+    hide() {
+        this.height = 0;
+        this.border.visible = false;
+        this.backgroundSprite.visible = false;
+        this.treepath.visible = false;
+        this.panel.rootElem.style.display = "none";
+    }
+    show() {
+        this.border.visible = true;
+        this.backgroundSprite.visible = true;
+        this.treepath.visible = true;
+        this.panel.rootElem.style.display = "";
     }
     draw() {
         this.border.position.set(0, this.bottom());
