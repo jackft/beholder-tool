@@ -19,6 +19,8 @@ export interface TimelineAnnotation {
     shift(diffMs: number): TimelineAnnotation
     shiftStart(diffMs: number): TimelineAnnotation
     shiftEnd(diffMs: number): TimelineAnnotation
+    shiftAnnotationForward(): TimelineAnnotation
+    shiftAnnotationBackward(): TimelineAnnotation
     setChannel(channelId: number): TimelineAnnotation
     delete()
     select(): TimelineAnnotation

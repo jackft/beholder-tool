@@ -273,6 +273,12 @@ export class Annotator {
             this.table.deselectTimelineAnnotation(annotation.state);
         });
     }
+    shiftTimelineAnnotationForward() {
+        this.timeline.shiftAnnotationForward();
+    }
+    shiftTimelineAnnotationBackward() {
+        this.timeline.shiftAnnotationBackward();
+    }
 
     playpause() {
         this.media.playpause();
