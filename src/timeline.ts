@@ -1723,7 +1723,7 @@ export class Channel {
     public panel: ChannelPanel
     public parent: Channel | undefined = undefined
 
-    // 
+    //
     private annotationIds: Set<number> = new Set([])
     public left: number = 0
     public right: number = 0
@@ -2205,7 +2205,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     //-------------------------------------------------------------------------
     x() { return this.timeline.xscale.inv(this.state.startTime) }
     y() { return this.sprite.y }
-    top() { 
+    top() {
         const margins = (this.overlapPosition + 1) * this.margin;
         return this.channel.top() + this.overlapPosition * this.height() + margins;
     }
@@ -2213,7 +2213,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     middleX() { return this.start() + this.width() / 2 }
     middleY() { return this.y() + this.height() / 2 }
     width() { return this.end() - this.start() }
-    height() { 
+    height() {
         const available = this.channel.height - (1 + this.overlapGroup.length) * this.margin;
         return available / this.overlapGroup.length
     }
