@@ -279,6 +279,12 @@ export class Annotator {
     shiftTimelineAnnotationBackward() {
         this.timeline.shiftAnnotationBackward();
     }
+    cycleChannel(n=1) {
+        this.timeline.cycleChannel(n);
+    }
+    groupSelectedAnnotations() {
+        this.timeline.groupSelectedAnnotations();
+    }
 
     playpause() {
         this.media.playpause();

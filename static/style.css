@@ -1,0 +1,178 @@
+/*----------------------------------------------------------------------------*/
+/* General Panel Styles */
+/*----------------------------------------------------------------------------*/
+
+.grid-panel {
+    background-color: #ccc; /* Light grey background for grid panel */
+    display: flex; /* Flexbox layout */
+    justify-content: center; /* Center content horizontally */
+    align-items: center; /* Center content vertically */
+    border: 1px solid #999; /* Light grey border */
+    height: fit-content; /* Adjust height based on content */
+}
+
+/*----------------------------------------------------------------------------*/
+/* Grid Layout Variations */
+/*----------------------------------------------------------------------------*/
+
+.layout0 {
+    grid-template-areas:
+        "A B"
+        "C C"; /* Defines areas for layout */
+    grid-template-columns: minmax(auto, 0.5fr) minmax(0, 3fr); /* Columns with flexible width */
+    grid-template-rows: auto 1fr; /* Rows with automatic height */
+}
+
+.layout1 {
+    grid-template-areas:
+        "A"
+        "C"; /* Stacks areas vertically */
+    grid-template-columns: 1fr; /* Single column */
+    grid-template-rows: auto 1fr; /* Rows with automatic height */
+}
+
+.layout2 {
+    grid-template-areas:
+        "A"
+        "B"
+        "C"; /* Stacks areas vertically */
+    grid-template-columns: 1fr; /* Single column */
+    grid-template-rows: auto auto 1fr; /* Rows with automatic height */
+}
+
+.layout3 {
+    grid-template-areas:
+        "A"; /* Single area layout */
+    grid-template-columns: 1fr; /* Single column */
+    grid-template-rows: 1fr; /* Single row */
+}
+
+/*----------------------------------------------------------------------------*/
+/* Content Backgrounds */
+/*----------------------------------------------------------------------------*/
+
+#summary-content,
+#pixi-content {
+    background: #000000; /* Black background for summary and pixi content */
+}
+
+/*----------------------------------------------------------------------------*/
+/* Beholder Media Table Styles */
+/*----------------------------------------------------------------------------*/
+
+.beholder-table {
+    overflow: hidden; /* Prevents overflow */
+    width: 100%; /* Full width */
+}
+
+.beholder-media {
+    width: 25%; /* Quarter width of container */
+    min-width: 500px; /* Minimum width */
+    resize: horizontal; /* Allows horizontal resizing */
+    overflow: hidden; /* Prevents overflow */
+}
+
+.beholder-media-controls {
+    display: flex; /* Flexbox layout */
+    background: #c1c1c1; /* Light grey background */
+    padding: 2px; /* Padding around controls */
+}
+
+.beholder-media-control {
+    margin: 0 5px; /* Margins between controls */
+    display: flex; /* Flexbox layout */
+}
+
+.beholder-media-control > i {
+    height: min-content; /* Minimal height */
+    margin: auto; /* Center icon */
+}
+
+.beholder-media-control > .slider {
+    margin: 0 auto; /* Center slider */
+    height: auto; /* Automatic height */
+    width: 50px; /* Fixed width */
+}
+
+.beholder-media-control > span {
+    display: inline-flex; /* Flexbox layout for inline elements */
+    align-items: center; /* Center align */
+    font-size: 16px; /* Font size */
+    justify-content: space-between; /* Space between content */
+    font-family: "Inconsolata; mono"; /* Monospaced font */
+}
+
+/*----------------------------------------------------------------------------*/
+/* Beholder Timeline and Channel Styles */
+/*----------------------------------------------------------------------------*/
+
+.beholder-timeline {
+    display: flex; /* Flexbox layout */
+}
+
+.beholder-channel-panel-container {
+    display: flex; /* Flexbox layout */
+    flex-direction: column; /* Column layout */
+}
+
+.beholder-channel-controls {
+    display: flex; /* Flexbox layout */
+}
+
+.beholder-summary-panel {
+    display: flex; /* Flexbox layout */
+    flex: auto; /* Flexible size */
+}
+
+.beholder-summary-panel .beholder-channel-buttons {
+    padding: 5px; /* Padding around channel buttons */
+}
+
+.beholder-summary-panel-left {
+    padding: 5px; /* Padding */
+    width: 20px; /* Fixed width */
+}
+
+.beholder-summary-panel-right {
+    padding: 10px; /* Padding */
+    width: 100%; /* Full width */
+}
+
+.beholder-summary-panel-right input {
+    width: 75px; /* Fixed width for input */
+}
+
+.beholder-ruler-panel,
+.beholder-channel-panel {
+    display: flex; /* Flexbox layout */
+    border-top: 1px solid #515151; /* Top border */
+    border-right: 1px dashed #515151; /* Right dashed border */
+    box-sizing: border-box; /* Include border in size calculations */
+}
+
+.beholder-channel-panel {
+    resize: vertical; /* Allows vertical resizing */
+    overflow: hidden; /* Prevents overflow */
+}
+
+.beholder-channel-names {
+    color: #515151; /* Grey color for text */
+    font-size: 12px; /* Small font size */
+}
+
+.beholder-channel-buttons {
+    display: flex; /* Flexbox layout */
+    flex-direction: column; /* Column layout */
+    padding-left: 2px; /* Padding on the left */
+}
+
+.beholder-channel-buttons > button {
+    width: 10px; /* Fixed width */
+    height: 10px; /* Fixed height */
+    padding: 0; /* No padding */
+    margin: 0; /* No margin */
+    font-family: monospace; /* Monospaced font */
+    font-size: 8px; /* Small font size */
+    line-height: 0; /* No line height */
+    border-radius: 0; /* No border radius */
+}

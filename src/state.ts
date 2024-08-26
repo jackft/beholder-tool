@@ -37,6 +37,9 @@ export interface AnnotationModifierState {
 export interface TimelineAnnotationState {
     id: number
     channelId: number
+    groupId: number | null | undefined
+    prevAnnotationId: number | null | undefined
+    nextAnnotationId: number | null | undefined
     type: string
     value: string
     startFrame: number

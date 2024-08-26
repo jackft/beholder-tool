@@ -1,7 +1,12 @@
 import * as state from "./state";
 
+export interface Channel {
+    state: state.ChannelState
+}
+
 export interface TimelineAnnotation {
     state: state.TimelineAnnotationState
+    newState: state.TimelineAnnotationState
     creartionDrag: boolean
     selected: boolean
     hovered: boolean
@@ -10,6 +15,10 @@ export interface TimelineAnnotation {
     dragged: boolean
     draggedStart: boolean
     draggedEnd: boolean
+    selectedStart: boolean
+    selectedEnd: boolean
+
+    channel: Channel
 
     update(track: boolean): TimelineAnnotation
 
@@ -21,6 +30,8 @@ export interface TimelineAnnotation {
     shiftEnd(diffMs: number): TimelineAnnotation
     shiftAnnotationForward(): TimelineAnnotation
     shiftAnnotationBackward(): TimelineAnnotation
+    cycleChannel(n: number): TimelineAnnotation
+    setGroupId(n: number): TimelineAnnotation
     setChannel(channelId: number): TimelineAnnotation
     delete()
     select(): TimelineAnnotation

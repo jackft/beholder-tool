@@ -9,7 +9,6 @@ import { TimelineAnnotationState, ChannelState, TimelineState } from './state';
 import * as base from './base';
 import { Scale, LinearScale } from './scales';
 import { deepCopy } from './utils';
-import { groupD8 } from 'pixi.js';
 
 const annotationColor = 0xc1c1c1;
 const annotationHoverColor = 0xe1e1e1;
@@ -37,9 +36,11 @@ enum SummaryPanelState {
 }
 
 class TimelineInteractionGroup {
+    public timeline: Timeline
     public annotations: Array<base.TimelineAnnotation>
 
-    constructor() {
+    constructor(timeline) {
+        this.timeline = timeline;
         this.annotations = [];
     }
     //
@@ -82,14 +83,14 @@ class TimelineInteractionGroup {
         return this;
     }
     filter(predicate: (value: base.TimelineAnnotation) => boolean): TimelineInteractionGroup {
-        return (new TimelineInteractionGroup()).set(this.annotations.filter(predicate))
+        return (new TimelineInteractionGroup(this)).set(this.annotations.filter(predicate))
     }
     forEach(func: (value: base.TimelineAnnotation) => void): TimelineInteractionGroup {
         this.annotations.forEach(func);
         return this;
     }
     map(func: (value: base.TimelineAnnotation) => base.TimelineAnnotation): TimelineInteractionGroup {
-        return new TimelineInteractionGroup().set(this.annotations.map(func));
+        return new TimelineInteractionGroup(this).set(this.annotations.map(func));
     }
     //
     setChannel(channelId: number) {
@@ -177,6 +178,15 @@ class TimelineInteractionGroup {
         this.annotations.forEach(annotation => annotation.shiftAnnotationBackward());
         return this;
     }
+    cycleChannel(n) {
+        this.annotations.forEach(annotation => annotation.cycleChannel(n));
+        return this;
+    }
+    group() {
+        const id = this.timeline.annotationGroupIdCounter++;
+        this.annotations.forEach(annotation => annotation.setGroupId(id));
+        return this;
+    }
 }
 
 interface TimelineEvents {
@@ -227,12 +237,14 @@ export class Timeline implements TimelineLike {
     public events: TimelineEvents;
 
     // interaction
-    public newTimelineAnnotationGroup = new TimelineInteractionGroup();
-    public selectionGroup = new TimelineInteractionGroup();
-    public draggingGroup = new TimelineInteractionGroup();
-    public hoverGroup = new TimelineInteractionGroup();
-    public indexGroup = new TimelineInteractionGroup();
-    public cursorGroup = new TimelineInteractionGroup();
+    public newTimelineAnnotationGroup = new TimelineInteractionGroup(this);
+    public selectionGroup = new TimelineInteractionGroup(this);
+    public draggingGroup = new TimelineInteractionGroup(this);
+    public hoverGroup = new TimelineInteractionGroup(this);
+    public indexGroup = new TimelineInteractionGroup(this);
+    public cursorGroup = new TimelineInteractionGroup(this);
+
+    public auxiliaryUpdateGroup = new TimelineInteractionGroup(this);
     // mouse button
     private mouseButtonDown: MouseButton = MouseButton.None
     private showingAnnotationText: boolean = false;
@@ -245,6 +257,7 @@ export class Timeline implements TimelineLike {
 
     private channelIdCounter: number;
     private annotationIdCounter: number;
+    public annotationGroupIdCounter: number;
     private insertEnabled: boolean = false;
     private multiSelectEnabled: boolean = false;
 
@@ -442,6 +455,7 @@ export class Timeline implements TimelineLike {
         // helper attributes
         this.channelIdCounter = 0;
         this.annotationIdCounter = 0;
+        this.annotationGroupIdCounter = 0;
 
         this._bindEvents();
 
@@ -533,12 +547,29 @@ export class Timeline implements TimelineLike {
     shiftAnnotationForward() {
         this.selectionGroup.shiftAnnotationForward()
             .update(true);
+        this.auxiliaryUpdateGroup
+            .update(true)
+            .clear();
         return this;
     }
     shiftAnnotationBackward() {
         this.selectionGroup.shiftAnnotationBackward()
             .update(true);
+        this.auxiliaryUpdateGroup
+            .update(true)
+            .clear();
         return this;
+    }
+    cycleChannel(n=1) {
+        this.selectionGroup
+            .cycleChannel(n)
+            .update(true);
+    }
+
+    groupSelectedAnnotations() {
+        this.selectionGroup
+            .group()
+            .update(true);
     }
 
     timeUpdate(milliseconds: number) {
@@ -574,6 +605,7 @@ export class Timeline implements TimelineLike {
 
     newChannelId() { return this.channelIdCounter++ }
     newAnnotationId() { return this.annotationIdCounter++ }
+    newGroupAnnotationId() { return this.annotationGroupIdCounter++ }
 
     addChild(child: PIXI.DisplayObject) { return this.viewport.addChild(child) }
 
@@ -769,12 +801,61 @@ export class Timeline implements TimelineLike {
     _handlePointerDownCreateTimelineAnnotation(x: number, y: number) {
         const channel = this.findChannel(x, y);
         if (channel === undefined) return;
-        const timeMs = this.pixel2time(x);
+        let timeMs = this.pixel2time(x);
         const channels = [channel].concat(channel.descendents());
+
+        // Here we handle the creation of a new group.
+        // 1. Find all selected annotations which currently have the ends selected
+        // 2. Sort them by which one is closest to the x-down point
+        // 3. Use the closest one
+        let closest = this.selectionGroup
+                            .annotations
+                            .filter(annotation => {
+                                if (annotation.channel.state.id !== channel.state.id) return false;
+                                if (annotation.selectedStart && timeMs < annotation.state.startTime) return true;
+                                if (annotation.selectedEnd && annotation.state.endTime < timeMs) return true;
+                                return false;
+                            })
+                            .sort((annotationLHS, annotationRHS) => {
+                                let distanceLHS = annotationLHS.selectedStart
+                                                ? annotationLHS.state.startTime
+                                                : annotationLHS.state.endTime
+                                distanceLHS = (distanceLHS - timeMs)**2
+                                let distanceRHS = annotationLHS.selectedStart
+                                                ? annotationRHS.state.startTime
+                                                : annotationRHS.state.endTime
+                                distanceRHS = (distanceLHS - timeMs)**2
+                                return distanceLHS - distanceRHS;
+                            });
+        let groupId: number | null = null;
+        let prevAnnotationId: number | null = null;
+        let nextAnnotationId: number | null = null;
+        if (closest.length > 0) {
+            const groupAnnotation = closest[0];
+            if (groupAnnotation.state.groupId !== null && groupAnnotation.state.groupId !== undefined) {
+                groupId = groupAnnotation.state.groupId;
+            } else {
+                groupId = this.newGroupAnnotationId();
+                groupAnnotation.newState.groupId = groupId;
+            }
+            if (groupAnnotation.selectedStart) {
+                nextAnnotationId = groupAnnotation.state.id;
+                timeMs = groupAnnotation.newState.startTime;
+            }
+            if (groupAnnotation.selectedEnd) {
+                prevAnnotationId = groupAnnotation.state.id;
+                timeMs = groupAnnotation.newState.endTime;
+            }
+        }
+
+        // create
         channels.forEach(channel => {
             const state = {
                 id: this.newAnnotationId(),
                 channelId: channel.state.id,
+                groupId: groupId,
+                prevAnnotationId: prevAnnotationId,
+                nextAnnotationId: nextAnnotationId,
                 startFrame: 0,
                 startTime: timeMs,
                 endFrame: 0,
@@ -786,6 +867,15 @@ export class Timeline implements TimelineLike {
             const annotation = this.createTimelineAnnotation(state);
             if (annotation === undefined) return;
             this.newTimelineAnnotationGroup.add(annotation);
+
+            if (prevAnnotationId !== null && prevAnnotationId !== undefined) {
+                this.annotations[prevAnnotationId].newState.nextAnnotationId = state.id;
+                this.annotations[prevAnnotationId].update(false);
+            }
+            if (nextAnnotationId !== null && nextAnnotationId !== undefined) {
+                this.annotations[nextAnnotationId].newState.prevAnnotationId = state.id;
+                this.annotations[nextAnnotationId].update(false);
+            }
         });
         this.newTimelineAnnotationGroup.rescale()
             .enableDragEnd()
@@ -857,6 +947,8 @@ export class Timeline implements TimelineLike {
         this.newTimelineAnnotationGroup.moveEnd(timeMs)
             .update(false)
             .draw();
+        this.auxiliaryUpdateGroup
+            .update(false);
         this.viewportTrackingCursor = false;
     }
     _hover(x: number, y: number, annotations: TimelineAnnotation[]) {
@@ -881,7 +973,15 @@ export class Timeline implements TimelineLike {
         this.mouseDownY = -1;
     }
     stopDrag() {
-        this.selectionGroup.set(this.draggingGroup.annotations);
+        if (this.newTimelineAnnotationGroup.size() > 0) {
+            this.selectionGroup
+                .deselect()
+                .clear();
+        } else {
+            this.selectionGroup
+                .clear()
+                .set(this.draggingGroup.annotations);
+        }
         this.draggingGroup
             .update(true)
             .disableDrag()
@@ -890,6 +990,9 @@ export class Timeline implements TimelineLike {
             .disableDrag()
             .forEach(annotation => this.dispatch("deleteTimelineAnnotation", annotation.state, false))
             .forEach(annotation => this.dispatch("createTimelineAnnotation", annotation.state, true))
+            .clear();
+        this.auxiliaryUpdateGroup
+            .update(true)
             .clear();
         this.rulerDrag = false;
         this.mouseButtonDown = MouseButton.None;
@@ -1716,7 +1819,7 @@ class ChannelPanel {
     }
 }
 
-export class Channel {
+export class Channel implements base.Channel{
     //
     public timeline: Timeline
     public state: ChannelState
@@ -1923,7 +2026,7 @@ export class Channel {
 
     overlapGroup(annotation: TimelineAnnotation) {
         const maxIter = 50;
-        const epsilon = 1e-2;
+        const epsilon = 1;
         let start = this.timeline.time2pixel(annotation.state.startTime);
         let end = this.timeline.time2pixel(annotation.state.endTime);
         for (let i=0; i < maxIter; ++i) {
@@ -2058,9 +2161,11 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         if (this.dragState.endTime <= timeMs) {
             this.newState.endTime = timeMs;
             this.newState.startTime = this.dragState.endTime;
+            this.resolveEndConstraints();
         } else {
             this.newState.startTime = timeMs;
             this.newState.endTime = this.dragState.endTime;
+            this.resolveStartConstraints();
         }
         return this;
     }
@@ -2068,9 +2173,11 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         if (timeMs <= this.dragState.startTime) {
             this.newState.startTime = timeMs;
             this.newState.endTime = this.dragState.startTime;
+            this.resolveStartConstraints();
         } else {
             this.newState.endTime = timeMs;
             this.newState.startTime = this.dragState.startTime;
+            this.resolveEndConstraints();
         }
         return this;
     }
@@ -2081,14 +2188,20 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     }
     shiftStart(diffMs: number): TimelineAnnotation {
         this.newState.startTime += diffMs;
+        this.resolveStartConstraints();
         return this;
     }
     shiftEnd(diffMs: number): TimelineAnnotation {
         this.newState.endTime += diffMs;
+        this.resolveEndConstraints();
         return this;
     }
     setChannel(channelId: number): TimelineAnnotation {
         this.newState.channelId = channelId;
+        return this;
+    }
+    cycleChannel(channelId: number): TimelineAnnotation {
+        this.newState.channelId = (this.state.channelId + channelId) % this.timeline.channels.length;
         return this;
     }
     shiftAnnotationForward() {
@@ -2201,6 +2314,51 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         return this;
     }
 
+    //-------------------------------------------------------------------------
+    // Group
+    //-------------------------------------------------------------------------
+    prevAnnotation() {
+        if (this.state.prevAnnotationId === null || this.state.prevAnnotationId === undefined) return null;
+        return this.timeline.annotations[this.state.prevAnnotationId];
+    }
+    nextAnnotation() {
+        if (this.state.nextAnnotationId === null || this.state.nextAnnotationId === undefined) return null;
+        return this.timeline.annotations[this.state.nextAnnotationId];
+    }
+    resolveStartConstraints(): TimelineAnnotation | null {
+        // potentially handle previous annotations
+        const prevAnnotation = this.prevAnnotation();
+        if (prevAnnotation !== null) {
+            if (this.newState.startTime < prevAnnotation.newState.endTime) {
+                this.newState.startTime = Math.max(
+                    this.newState.startTime,
+                    prevAnnotation.newState.startTime + 1
+                );
+            }
+            prevAnnotation.newState.endTime = this.newState.startTime;
+            this.timeline.auxiliaryUpdateGroup.add(prevAnnotation);
+        }
+        return prevAnnotation;
+    }
+    resolveEndConstraints(): TimelineAnnotation | null {
+        // potentially handle previous annotations
+        const nextAnnotation = this.nextAnnotation();
+        if (nextAnnotation !== null) {
+            if (nextAnnotation.newState.startTime < this.newState.endTime) {
+                this.newState.endTime = Math.min(
+                    this.newState.endTime,
+                    nextAnnotation.newState.endTime - 1
+                );
+            }
+            nextAnnotation.newState.startTime = this.newState.endTime;
+            this.timeline.auxiliaryUpdateGroup.add(nextAnnotation);
+        }
+        return nextAnnotation;
+    }
+    setGroupId(groupId: number) {
+        this.newState.groupId = groupId;
+        return this;
+    }
     //-------------------------------------------------------------------------
     // Helpers
     //-------------------------------------------------------------------------
@@ -2321,7 +2479,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
 
         this.selectedStart = false;
         this.selectedEnd = false;
-
+        this.timeline.annotator.table.deselectTimelineAnnotation(this.state);
         return this;
     }
 
