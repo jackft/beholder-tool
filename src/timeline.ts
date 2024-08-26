@@ -676,10 +676,11 @@ export class Timeline implements TimelineLike {
                 this.multiSelectEnabled = true;
             }
         });
-        document.addEventListener("keyup", (event) => {
+        window.addEventListener("keyup", (event) => {
             if (event.key === "Control") {
                 this.insertEnabled = false;
                 this.multiSelectEnabled = false;
+                this._changeCursor(-1, -1);
             }
             if (event.key === "Shift" || event.ctrlKey) {
                 this.multiSelectEnabled = false;

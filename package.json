@@ -4,6 +4,7 @@
     "start": "webpack serve --mode=development",
     "build": "run-s clean build-only",
     "build-only": "webpack --mode=production",
+    "build-dev": "webpack --mode=development",
     "clean": "rimraf dist"
   },
   "main": "beholder.js",
@@ -36,7 +37,7 @@
     "node-interval-tree": "^2.0.1",
     "pixi-viewport": "^4.37.0",
     "pixi.js": "^6.5.7",
-    "tabulator-tables": "^5.4.2"
+    "tabulator-tables": "^5.5"
   },
   "devDependencies": {
     "@types/tabulator-tables": "^5.4.2",
