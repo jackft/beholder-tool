@@ -1989,7 +1989,7 @@ export class Channel implements base.Channel{
     }
     draw() {
         this.border.position.set(0, this.bottom());
-        this.border.lineStyle(1, 0x919191).moveTo(0, 0).lineTo(this.width, 0);
+        this.border.lineStyle(2.0, 0x919191).moveTo(0, 0).lineTo(this.width, 0);
         this.drawBackground();
         this.drawChannelTree();
     }
@@ -2026,7 +2026,7 @@ export class Channel implements base.Channel{
 
     overlapGroup(annotation: TimelineAnnotation) {
         const maxIter = 50;
-        const epsilon = 1;
+        const epsilon = 1e-2;
         let start = this.timeline.time2pixel(annotation.state.startTime);
         let end = this.timeline.time2pixel(annotation.state.endTime);
         for (let i=0; i < maxIter; ++i) {
@@ -2480,6 +2480,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.selectedStart = false;
         this.selectedEnd = false;
         this.timeline.annotator.table.deselectTimelineAnnotation(this.state);
+        this.timeline.summary.deselectTimelineAnnotation(this.state);
         return this;
     }
 
