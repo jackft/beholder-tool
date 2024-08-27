@@ -2196,6 +2196,22 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         this.resolveEndConstraints();
         return this;
     }
+    shiftFrameStart(frames: number, framerate: number): TimelineAnnotation {
+        const currentFrame = Math.floor(this.newState.startTime / 1000 * framerate);
+        const newFrame = currentFrame + frames + 0.1;
+        const newTime = newFrame / framerate * 1000;
+        this.newState.startTime = newTime;
+        this.resolveStartConstraints();
+        return this;
+    }
+    shiftFrameEnd(frames: number, framerate: number): TimelineAnnotation {
+        const currentFrame = Math.floor(this.newState.endTime / 1000 * framerate);
+        const newFrame = currentFrame + frames + 0.1;
+        const newTime = newFrame / framerate * 1000;
+        this.newState.endTime = newTime;
+        this.resolveEndConstraints();
+        return this;
+    }
     setChannel(channelId: number): TimelineAnnotation {
         this.newState.channelId = channelId;
         return this;
@@ -2208,10 +2224,10 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         const framerate = this.timeline.annotator.media.state.framerate;
         if (framerate !== null) {
             if (this.selectedStart) {
-                this.shiftStart(1000/framerate);
+                this.shiftFrameStart(1, framerate);
                 this.timeline.annotator.updateTime(this.newState.startTime);
             } else if (this.selectedEnd) {
-                this.shiftEnd(1000/framerate);
+                this.shiftFrameEnd(1, framerate);
                 this.timeline.annotator.updateTime(this.newState.endTime);
             }
         }
@@ -2221,10 +2237,10 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
         const framerate = this.timeline.annotator.media.state.framerate;
         if (framerate !== null) {
             if (this.selectedStart) {
-                this.shiftStart(-1000/framerate);
+                this.shiftFrameStart(-1, framerate);
                 this.timeline.annotator.updateTime(this.newState.startTime);
             } else if (this.selectedEnd) {
-                this.shiftEnd(-1000/framerate);
+                this.shiftFrameEnd(-1, framerate);
                 this.timeline.annotator.updateTime(this.newState.endTime);
             }
         }
