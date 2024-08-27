@@ -1958,6 +1958,15 @@ export class Channel implements base.Channel{
         );
     }
     removeAnnotation(state: TimelineAnnotationState): boolean {
+        const annotationToDelete = this.timeline.annotations[state.id];
+        const nextAnnotation = annotationToDelete.nextAnnotation();
+        const prevAnnotation = annotationToDelete.prevAnnotation();
+        if (nextAnnotation !== null && nextAnnotation !== undefined) {
+            nextAnnotation.state.prevAnnotationId = null;
+        }
+        if (prevAnnotation !== null && prevAnnotation !== undefined) {
+            prevAnnotation.state.nextAnnotationId = null;
+        }
         this.annotationIds.delete(state.id);
         return this.timelineAnnotationTree.remove(
             this.timeline.time2pixel(state.startTime),
@@ -2344,7 +2353,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     resolveStartConstraints(): TimelineAnnotation | null {
         // potentially handle previous annotations
         const prevAnnotation = this.prevAnnotation();
-        if (prevAnnotation !== null) {
+        if (prevAnnotation !== null && prevAnnotation !== undefined) {
             if (this.newState.startTime < prevAnnotation.newState.endTime) {
                 this.newState.startTime = Math.max(
                     this.newState.startTime,
@@ -2359,7 +2368,7 @@ export class TimelineAnnotation implements base.TimelineAnnotation {
     resolveEndConstraints(): TimelineAnnotation | null {
         // potentially handle previous annotations
         const nextAnnotation = this.nextAnnotation();
-        if (nextAnnotation !== null) {
+        if (nextAnnotation !== null && nextAnnotation !== undefined) {
             if (nextAnnotation.newState.startTime < this.newState.endTime) {
                 this.newState.endTime = Math.min(
                     this.newState.endTime,

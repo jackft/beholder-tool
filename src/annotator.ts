@@ -253,7 +253,6 @@ export class Annotator {
         }
     }
     deleteSelectedAnnotations() {
-        console.log(this.timeline.selectionGroup.annotations)
         this.timeline
             .selectionGroup
             .forEach((annotation) => this.timeline.dispatch("deleteTimelineAnnotation", annotation.state))
